@@ -353,11 +353,16 @@ export default function LinearProgramming() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [problem, setProblem] = useState({
     objective: [3, 2],
+    objective: [3, 2],
     constraints: [
-      [1, 1, 4],
-      [2, 1, 6],
-      [-1, 0, 0],
-      [0, -1, 0],
+      [17, 5, 1125],
+      [18, 27, 2235],
+      [-6, 19, 1072],
+      [-27, -1, -312],
+      [-15, 5, 8],
+      [-12, -22, -447],
+      [8, -16, 147],
+      [17, -16, 517]
     ],
   });
   const [point, setPoint] = useState([0, 0]);
