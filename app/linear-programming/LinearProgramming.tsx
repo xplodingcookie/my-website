@@ -543,6 +543,9 @@ export default function LinearProgramming() {
     // objective random but positive
     const obj = [1 + Math.floor(Math.random() * 5), 1 + Math.floor(Math.random() * 5)];
 
+    cons.push([-1, 0, 0]);  // x₁ ≥ 0
+    cons.push([0, -1, 0]);  // x₂ ≥ 0
+
     setProblem({ objective: obj, constraints: cons });
     reset();
   }
@@ -586,55 +589,121 @@ export default function LinearProgramming() {
   };
 
   return (
-    <section className={styles.container}>
-      <h1 className={styles.title}>
-        Linear Programming - Simplex Algorithm
-      </h1>
-
-      <div className={styles.controls}>
-        <button className={styles.button} onClick={randomise}>Randomise</button>
-        <button className={styles.button} onClick={solve} disabled={running}>
-          Solve
-        </button>
-        <button className={styles.button} onClick={reset}>Reset</button>
-        <label className={styles.speedLabel}>
-          speed
-          <input
-            type="range"
-            min={1}
-            max={10}
-            value={speed}
-            onChange={(e) => setSpeed(+e.target.value)}
-          />
-        </label>
-      </div>
-
-      <canvas ref={canvasRef} width={600} height={360} className={styles.canvas}></canvas>
-      
-
-      <div className={styles.info}>
-        <div>
-          point: ({point[0].toFixed(2)}, {point[1].toFixed(2)})
+    <div className={styles.container}>
+      <section className={styles.section}>
+        {/* Header */}
+        <div className={styles.header}>
+          <h1 className={styles.title}>
+            Linear Programming - Simplex Algorithm
+          </h1>
         </div>
-        <div>
-          objective: {(problem.objective[0] * point[0] + problem.objective[1] * point[1]).toFixed(2)}
-        </div>
-        <div>iteration: {iter}</div>
-      </div>
 
-      <details className={styles.problemDetails}>
-        <summary>current problem</summary>
-        <div>
-          maximise: {problem.objective[0]}x₁ + {problem.objective[1]}x₂
-        </div>
-        {problem.constraints.map(([a, b, rhs], i) => (
-          <div key={i}>
-            {a}x₁ + {b}x₂ ≤ {rhs}
+        {/* Controls Panel */}
+        <div className={styles.controls}>
+          <button 
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            onClick={randomise}
+          >
+            Randomise
+          </button>
+          
+          <button 
+            className={`${styles.button} ${styles.buttonPrimary}`}
+            onClick={solve} 
+            disabled={running}
+          >
+            {running ? 'Solving...' : 'Solve'}
+          </button>
+          
+          <button 
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            onClick={reset}
+          >
+            Reset
+          </button>
+          
+          <div className={styles.speedControl}>
+            <span>Speed</span>
+            <input
+              type="range"
+              min={1}
+              max={10}
+              value={speed}
+              onChange={(e) => setSpeed(+e.target.value)}
+              className={styles.slider}
+            />
+            <span className={styles.speedValue}>
+              {speed}
+            </span>
           </div>
-        ))}
-        <div>x₁ ≥ 0</div>
-        <div>x₂ ≥ 0</div>
-      </details>
-    </section>
+        </div>
+
+        {/* Canvas Container */}
+        <div className={styles.canvasContainer}>
+          <canvas 
+            ref={canvasRef} 
+            width={600} 
+            height={360} 
+            className={styles.canvas}
+          />
+        </div>
+
+        {/* Info Panel */}
+        <div className={styles.infoGrid}>
+          {/* Current State */}
+          <div className={styles.infoCard}>
+            <h2 className={styles.cardHeader}>
+              <div className={styles.statusDot}></div>
+              Current State
+            </h2>
+            <div className={styles.infoItems}>
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Point:</span>
+                <span className={`${styles.infoValue} ${styles.infoValueBlue}`}>
+                  ({point[0].toFixed(2)}, {point[1].toFixed(2)})
+                </span>
+              </div>
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Objective:</span>
+                <span className={`${styles.infoValue} ${styles.infoValuePurple}`}>
+                  {(problem.objective[0] * point[0] + problem.objective[1] * point[1]).toFixed(2)}
+                </span>
+              </div>
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Iteration:</span>
+                <span className={`${styles.infoValue} ${styles.infoValueAmber}`}>{iter}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Problem Definition */}
+          <div className={styles.infoCard}>
+            <h2 className={styles.cardHeader}>Current Problem</h2>
+            
+            <div className={styles.problemContent}>
+              <div className={styles.objectiveBox}>
+                <div className={styles.objectiveLabel}>Maximize:</div>
+                <div className={styles.objectiveFormula}>
+                  {problem.objective[0]}x₁ + {problem.objective[1]}x₂
+                </div>
+              </div>
+              
+              <div className={styles.constraintsSection}>
+                <div className={styles.constraintsLabel}>Subject to:</div>
+                {problem.constraints.map(([a, b, rhs], i) => (
+                  <div key={i} className={styles.constraint}>
+                    {a}x₁ + {b}x₂ ≤ {rhs}
+                  </div>
+                ))}
+                <div className={styles.nonNegativity}>
+                  <span className={styles.nonNegativityConstraint}>x₁ ≥ 0</span>
+                  <span className={styles.nonNegativityConstraint}>x₂ ≥ 0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

@@ -7,8 +7,10 @@ export const metadata = {
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900 flex items-start justify-center py-10">
-      <LinearProgramming />
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
+      <div className="max-w-4xl mx-auto">
+        <LinearProgramming />
+      </div>
     </main>
   );
 }
