@@ -205,7 +205,10 @@ export class SimplexSolver {
     let k = 0;
     while (k < maxIter) {
       const e = this.entering();
-      if (e === -1) break;               // optimal
+      if (e === -1) {
+        this.status = 'optimal';
+        break;
+      }
       const l = this.leaving(e);
       if (l === -1) { this.status = 'unbounded'; break; }
       this.pivot(e, l);
@@ -314,28 +317,6 @@ function fitToCanvas(pts: number[][], width: number, height: number, pad = 30) {
   return { scale, origin };
 }
 
-function drawArrow(
-  ctx: CanvasRenderingContext2D,
-  fromX: number,
-  fromY: number,
-  toX: number,
-  toY: number,
-) {
-  const head = 8;
-  const dx   = toX - fromX, dy = toY - fromY;
-  const len  = Math.hypot(dx, dy);
-  if (len < 1e-3) return;
-  const ux = dx / len, uy = dy / len;
-
-  ctx.beginPath();
-  ctx.moveTo(fromX, fromY);
-  ctx.lineTo(toX, toY);
-  ctx.lineTo(toX - head * (ux +  uy), toY - head * (uy - ux));
-  ctx.moveTo(toX, toY);
-  ctx.lineTo(toX - head * (ux -  uy), toY - head * (uy + ux));
-  ctx.stroke();
-}
-
 export function tween(
   from: number[],
   to: number[],
@@ -379,7 +360,7 @@ export default function LinearProgramming() {
   });
   const [point, setPoint] = useState([0, 0]);
   const [optimal, setOptimal] = useState<number[] | null>(null);
-  const [speed, setSpeed] = useState(3);
+  const [speed, setSpeed] = useState(2);
   const [running, setRunning] = useState(false);
   const [iter, setIter] = useState(0);
   const [path, setPath] = useState<number[][]>([]);
@@ -520,7 +501,7 @@ export default function LinearProgramming() {
     }
   
     // 4. Live direction vectors
-    ctx.strokeStyle = '#f97316';
+    ctx.strokeStyle = '#7c3aed';
     ctx.lineWidth = 2;
     for (let i = 1; i < path.length; i++) {
       const [fx, fy] = toCanvas(path[i - 1][0], path[i - 1][1]);
@@ -549,7 +530,7 @@ export default function LinearProgramming() {
       Math.abs(point[0] - optimal[0]) < 1e-6 &&
       Math.abs(point[1] - optimal[1]) < 1e-6;
 
-    ctx.fillStyle = isOptimal ? '#22c55e' : '#ef4444';
+    ctx.fillStyle = isOptimal ? '#22c55e' : '#ec4899';
     ctx.beginPath();
     ctx.arc(px, py, 4, 0, Math.PI * 2);
     ctx.fill();
@@ -699,6 +680,7 @@ export default function LinearProgramming() {
           <button 
             className={`${styles.button} ${styles.buttonSecondary}`}
             onClick={randomise}
+            disabled={running}
           >
             Randomise
           </button>
@@ -734,65 +716,70 @@ export default function LinearProgramming() {
           </div>
         </div>
 
-        {/* Canvas Container */}
-        <div className={styles.canvasContainer}>
-          <canvas 
-            ref={canvasRef} 
-            width={600} 
-            height={360} 
-            className={styles.canvas}
-          />
-        </div>
+        {/* Main Content Area */}
+        <div className={styles.mainContent}>
+          {/* Canvas Container - Square */}
+          <div className={styles.canvasContainer}>
+            <canvas 
+              ref={canvasRef} 
+              width={600} 
+              height={600} 
+              className={styles.canvas}
+            />
+          </div>
 
-        {/* Info Panel */}
-        <div className={styles.infoGrid}>
-          {/* Current State */}
-          <div className={styles.infoCard}>
-            <h2 className={styles.cardHeader}>
-              <div className={styles.statusDot}></div>
-              Current State
-            </h2>
-            <div className={styles.infoItems}>
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>Point:</span>
-                <span className={`${styles.infoValue} ${styles.infoValueBlue}`}>
-                  ({point[0].toFixed(2)}, {point[1].toFixed(2)})
-                </span>
+          {/* Right Side Info Cards */}
+          <div className={styles.sideInfo}>
+            {/* Current Problem Card */}
+            <div className={styles.infoCard}>
+              <h2 className={styles.cardHeader}>Current Problem</h2>
+              <div className={styles.problemContent}>
+                <div className={styles.objectiveBox}>
+                  <div className={styles.objectiveLabel}>Maximize:</div>
+                  <div className={styles.objectiveFormula}>
+                    {problem.objective[0]}x₁ + {problem.objective[1]}x₂
+                  </div>
+                </div>
               </div>
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>Objective:</span>
-                <span className={`${styles.infoValue} ${styles.infoValuePurple}`}>
-                  {(problem.objective[0] * point[0] + problem.objective[1] * point[1]).toFixed(2)}
-                </span>
-              </div>
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>Iteration:</span>
-                <span className={`${styles.infoValue} ${styles.infoValueAmber}`}>{iter}</span>
+            </div>
+
+            {/* Current State Card */}
+            <div className={styles.infoCard}>
+              <h2 className={styles.cardHeader}>
+                <div className={styles.statusDot}></div>
+                Current State
+              </h2>
+              <div className={styles.infoItems}>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Point:</span>
+                  <span className={`${styles.infoValue} ${styles.infoValueBlue}`}>
+                    ({point[0].toFixed(2)}, {point[1].toFixed(2)})
+                  </span>
+                </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Objective:</span>
+                  <span className={`${styles.infoValue} ${styles.infoValuePurple}`}>
+                    {(problem.objective[0] * point[0] + problem.objective[1] * point[1]).toFixed(2)}
+                  </span>
+                </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Iteration:</span>
+                  <span className={`${styles.infoValue} ${styles.infoValueAmber}`}>{iter}</span>
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Problem Definition */}
-          <div className={styles.infoCard}>
-            <h2 className={styles.cardHeader}>Current Problem</h2>
-            
-            <div className={styles.problemContent}>
-              <div className={styles.objectiveBox}>
-                <div className={styles.objectiveLabel}>Maximize:</div>
-                <div className={styles.objectiveFormula}>
-                  {problem.objective[0]}x₁ + {problem.objective[1]}x₂
-                </div>
+        <div className={styles.infoCard}>
+          <h2 className={styles.cardHeader}>Constraints</h2>
+          <div className={styles.constraintsSection}>
+            <div className={styles.constraintsLabel}>Subject to:</div>
+            {problem.constraints.map(([a, b, rhs], i) => (
+              <div key={i} className={styles.constraint}>
+                {a}x₁ + {b}x₂ ≤ {rhs}
               </div>
-              
-              <div className={styles.constraintsSection}>
-                <div className={styles.constraintsLabel}>Subject to:</div>
-                {problem.constraints.map(([a, b, rhs], i) => (
-                  <div key={i} className={styles.constraint}>
-                    {a}x₁ + {b}x₂ ≤ {rhs}
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
