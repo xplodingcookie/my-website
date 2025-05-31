@@ -336,6 +336,25 @@ function drawArrow(
   ctx.stroke();
 }
 
+export function tween(
+  from: number[],
+  to: number[],
+  updatePoint: (p: number[]) => void,
+  duration = 600,
+  easing = (t: number) => t * t * (3 - 2 * t)
+) {
+  return new Promise<void>(resolve => {
+    const t0 = performance.now();
+    function frame(now: number) {
+      const t = Math.min(1, (now - t0) / duration);
+      const p = from.map((v, i) => v + (to[i] - v) * easing(t));
+      updatePoint(p);                         // «★» use new name
+      if (t < 1) requestAnimationFrame(frame); else resolve();
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
 /*********************
  *     Component     *
  *********************/
@@ -362,17 +381,33 @@ export default function LinearProgramming() {
   const [iter, setIter] = useState(0);
   const [path, setPath] = useState<number[][]>([]);
 
+  /* ---------- hi‑DPI canvas setup ---------- */
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const dpr = window.devicePixelRatio ?? 1;
+    c.width  = 600 * dpr;
+    c.height = 360 * dpr;
+    c.style.width  = '600px';
+    c.style.height = '360px';
+    const ctx = c.getContext('2d');
+    ctx?.scale(dpr, dpr);
+  }, []);
+
   const draw = useCallback(() => {
     const c = canvasRef.current;
     if (!c) return;
     const ctx = c.getContext('2d');
     if (!ctx) return;
+  
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.fillRect(0, 0, c.width, c.height);
 
     // 1. hull + viewport transform
     const hull = hullFromConstraints(problem.constraints);
     const { scale: unit, origin } = fitToCanvas(hull.length ? [...hull , [0, 0]] : [[0, 0]], c.width, c.height, 40);
 
-    /* helper that converts logical → canvas coordinates */
+    /* helper that converts logical => canvas coordinates */
     const toCanvas = (x: number, y: number) => [
       origin.x + x * unit,
       origin.y - y * unit,             // invert Y-axis
@@ -496,7 +531,12 @@ export default function LinearProgramming() {
       const sign = (nx * cx + ny * cy < nx * x1 + ny * y1) ? 1 : -1;
       const a =  sign * nx;
       const b =  sign * ny;
-      const c =  sign * (nx * x1 + ny * y1);
+      let c =  sign * (nx * x1 + ny * y1);
+
+      // randomly change them to avoid degeneracy
+      const perturbation = (Math.random() - 0.5) * 2;
+      c += perturbation;
+
       cons.push([a, b, c]);
     }
 
@@ -513,24 +553,34 @@ export default function LinearProgramming() {
     setRunning(false);
     setPath([]);
   };
+
   const solve = async () => {
     if (running) return;
     setRunning(true);
-    const A = problem.constraints.map((v) => v.slice(0, 2));
-    const b = problem.constraints.map((v) => v[2]);
+    const A = problem.constraints.map(v => v.slice(0, 2));
+    const b = problem.constraints.map(v => v[2]);
     const solver = new SimplexSolver(problem.objective, A, b);
-    const steps = solver.solve();
+    const { steps, status } = solver.solve();
 
-    for (const s of steps) {
-      await new Promise(requestAnimationFrame);
-      setPath(p => [...p, s.sol]);
-      setPoint(s.sol);
+    setPoint(steps[0].sol);
+    setPath([steps[0].sol]);
+
+    for (let k = 1; k < steps.length; k++) {
+      await tween(
+        steps[k - 1].sol,
+        steps[k].sol,
+        setPoint,
+        900 / speed
+      );
+      setPath(p => [...p, steps[k].sol]);
       setIter(i => i + 1);
-      if (s.optimal) setOptimal(s.sol);
-
-      const extra = (11 - speed) * 60;
-      await new Promise(r => setTimeout(r, extra));
+      if (steps[k].optimal) setOptimal(steps[k].sol);
     }
+
+    if (status === 'infeasible')
+      console.log('This linear program is infeasible - no point satisfies all constraints.');
+    else if (status === 'unbounded')
+      console.log('The objective is unbounded - it can grow without limit.');
 
     setRunning(false);
   };
