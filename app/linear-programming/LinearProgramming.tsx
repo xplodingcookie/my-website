@@ -386,12 +386,15 @@ export default function LinearProgramming() {
     const c = canvasRef.current;
     if (!c) return;
     const dpr = window.devicePixelRatio ?? 1;
-    c.width  = 600 * dpr;
-    c.height = 360 * dpr;
-    c.style.width  = '600px';
-    c.style.height = '360px';
+    const rect = c.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+
+    c.width = width * dpr;
+    c.height = height * dpr;
+
     const ctx = c.getContext('2d');
-    ctx?.scale(dpr, dpr);
+    if (ctx) ctx.scale(dpr, dpr);
   }, []);
 
   const draw = useCallback(() => {
@@ -399,34 +402,62 @@ export default function LinearProgramming() {
     if (!c) return;
     const ctx = c.getContext('2d');
     if (!ctx) return;
-  
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    ctx.fillRect(0, 0, c.width, c.height);
+
+    const width = c.getBoundingClientRect().width;
+    const height = c.getBoundingClientRect().height;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw faint grid lines
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+    ctx.lineWidth = 1;
+    const gridSpacing = 40;
+    for (let x = 0; x <= width; x += gridSpacing) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+    }
+    for (let y = 0; y <= height; y += gridSpacing) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    }
+    ctx.stroke();
 
     // 1. hull + viewport transform
     const hull = hullFromConstraints(problem.constraints);
-    const { scale: unit, origin } = fitToCanvas(hull.length ? [...hull , [0, 0]] : [[0, 0]], c.width, c.height, 40);
+    const { scale: unit, origin } = fitToCanvas(hull.length ? [...hull , [0, 0]] : [[0, 0]], width, height, 40);
 
     /* helper that converts logical => canvas coordinates */
     const toCanvas = (x: number, y: number) => [
       origin.x + x * unit,
-      origin.y - y * unit,             // invert Y-axis
+      origin.y - y * unit,
     ];
-
-    ctx.clearRect(0, 0, c.width, c.height);
 
     // 2. axes
     ctx.strokeStyle = '#d4d4d4';
     ctx.beginPath();
-    if (origin.y >= 0 && origin.y <= c.height) {
+    if (origin.y >= 0 && origin.y <= height) {
       ctx.moveTo(0, origin.y);
-      ctx.lineTo(c.width, origin.y);
+      ctx.lineTo(width, origin.y);
     }
-    if (origin.x >= 0 && origin.x <= c.width) {
+    if (origin.x >= 0 && origin.x <= width) {
       ctx.moveTo(origin.x, 0);
-      ctx.lineTo(origin.x, c.height);
+      ctx.lineTo(origin.x, height);
     }
     ctx.stroke();
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    if (origin.y >= 10) {
+      ctx.fillText('x₁', width - 20, origin.y + 5);
+    }
+    if (origin.x <= width - 30) {
+      ctx.fillText('x₂', origin.x + 5, 10);
+    }
 
     // 3. feasible polygon
     if (hull.length) {
@@ -695,10 +726,6 @@ export default function LinearProgramming() {
                     {a}x₁ + {b}x₂ ≤ {rhs}
                   </div>
                 ))}
-                <div className={styles.nonNegativity}>
-                  <span className={styles.nonNegativityConstraint}>x₁ ≥ 0</span>
-                  <span className={styles.nonNegativityConstraint}>x₂ ≥ 0</span>
-                </div>
               </div>
             </div>
           </div>
