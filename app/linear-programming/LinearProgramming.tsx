@@ -21,10 +21,7 @@ export type LPStatus = 'optimal' | 'unbounded' | 'infeasible' | 'searching';
  *       from scratch with the correct reduced‑cost row operations so that the
  *       tableau is in canonical form for Phase II.
  */
-/****************
- * Simplex core *
- * Phase I + II *
- ****************/
+
 export class SimplexSolver {
   /* problem data */
   private readonly cOrig: number[];
@@ -54,7 +51,7 @@ export class SimplexSolver {
     this.runSimplex(steps, maxIter);
     const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –Σ artificial
 
-    if (phaseIObj < -1e-8) {                          // ⇒ some artificial > 0
+    if (phaseIObj < -1e-8) {                          // some artificial > 0
       this.status = 'infeasible';
       return { steps, status: this.status };
     }
@@ -92,7 +89,7 @@ export class SimplexSolver {
       let row = [...A[i]];
       let rhs = b[i];
       let isLE = true;
-
+      // force feasiblity
       if (rhs < 0) {               // flip sign if RHS is negative
         row = row.map(v => -v);
         rhs = -rhs;
@@ -119,7 +116,7 @@ export class SimplexSolver {
       this.tableau.push(row);
     }
 
-    /* make sure every undefined ⇒ 0 (one pass is enough) */
+    /* make sure every undefined => 0 (one pass is enough) */
     this.tableau = this.tableau.map(r => r.map(v => v ?? 0));
 
     /* Phase-I objective  maximise –Σ artificial  */
@@ -155,7 +152,7 @@ export class SimplexSolver {
       }
     }
 
-    /* canonicalise: make all basic columns’ reduced costs zero */
+    /* canonicalise: make all basic columns reduced costs zero */
     for (let i = 0; i < this.m; i++) {
       const bv = this.basicVars[i];
       const coeff = obj[bv];
@@ -237,7 +234,7 @@ export class SimplexSolver {
         mostNeg = obj[j]; e = j;
       }
     }
-    return e;                    // −1 ⇒ optimal
+    return e;                    // −1 => optimal
   }
 
   private leaving(e: number): number {
@@ -251,7 +248,7 @@ export class SimplexSolver {
         if (ratio < best - 1e-12) { best = ratio; l = i; }
       }
     }
-    return l;                    // −1 ⇒ unbounded
+    return l;                    // −1 => unbounded
   }
 
   private pivot(e: number, l: number) {
@@ -267,13 +264,6 @@ export class SimplexSolver {
 
   private objective(): number { return this.tableau.at(-1)!.at(-1)!; }
 }
-
-
-/********************************************************************
- * The React component below is unchanged except that it imports the
- * *new* SimplexSolver (in the same file) so that you only need to
- * replace this file and everything should work.
- ********************************************************************/
 
 function hullFromConstraints(cons: number[][]): number[][] {
   // ---- 1. collect every pair-wise intersection --------------
@@ -447,12 +437,50 @@ export default function LinearProgramming() {
 
   /* actions */
   const randomise = () => {
-    // how many edges?
-    const n = 3 + Math.floor(Math.random() * 8);   // 3-8 inclusive
-    const Rmin = 2, Rmax = 40;                      // radius of the polygon
-    const angles = [...Array(n)].map(() => Math.random() * 2 * Math.PI).sort((a, b) => a - b);
-    const verts  = angles.map(a => [Math.cos(a) * (Rmin + Math.random() * (Rmax - Rmin)),
-                                    Math.sin(a) * (Rmin + Math.random() * (Rmax - Rmin))]);
+    // Create a skewed octagon (same as before)
+    const n = 10;
+    const baseRadius = 15 + Math.random() * 15; // 15-30 base radius
+    
+    // Start with regular octagon angles, then add skew
+    const baseAngles = [...Array(n)].map((_, i) => (i * 2 * Math.PI) / n);
+    
+    // Add random skew to each angle (but keep them ordered)
+    const skewFactor = 0.3 + Math.random() * 0.4; // 0.3 to 0.7
+    // (angle, i)
+    const angles = baseAngles.map(angle => {
+      const skew = (Math.random() - 0.5) * skewFactor;
+      return angle + skew;
+    }).sort((a, b) => a - b);
+    
+    // Create vertices with varying radii for more interesting shapes
+    const verts = angles.map(angle => {
+      const radiusVariation = 0.7 + Math.random() * 0.6; // 0.7 to 1.3 multiplier
+      const radius = baseRadius * radiusVariation;
+      return [
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius
+      ];
+    });
+
+    // Add some overall skew/shear to the entire shape
+    const shearX = (Math.random() - 0.5) * 0.3; // -0.15 to 0.15
+    const shearY = (Math.random() - 0.5) * 0.3;
+    const skewedVerts = verts.map(([x, y]) => [
+      x + shearY * y,
+      y + shearX * x
+    ]);
+
+    // This forces Phase I to find an initial BFS since (0,0) won't be feasible
+    const minX = Math.min(...skewedVerts.map(v => v[0]));
+    const minY = Math.min(...skewedVerts.map(v => v[1]));
+    const pad  = 5;
+    const dx   = (minX < 0 ? -minX : 0) + pad;
+    const dy   = (minY < 0 ? -minY : 0) + pad;
+
+    const translatedVerts = skewedVerts.map(([x, y]) => [
+      Math.round(x + dx),
+      Math.round(y + dy)
+    ]);
 
     // ---- turn every edge into an inequality  a·x + b·y ≤ c ----
     const [cx, cy] = verts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0])
@@ -510,7 +538,7 @@ export default function LinearProgramming() {
   return (
     <section className={styles.container}>
       <h1 className={styles.title}>
-        Linear Programming - Simplex Algorithm <br /> (Phase I & II problems)
+        Linear Programming - Simplex Algorithm
       </h1>
 
       <div className={styles.controls}>

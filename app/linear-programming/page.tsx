@@ -2,7 +2,7 @@ import LinearProgramming from "./LinearProgramming";
 
 export const metadata = {
   title: "Linear Programming Demo",
-  description: "Interactive simplex‑method visualisation",
+  description: "Interactive simplex-method visualisation",
 };
 
 export default function Page() {
