@@ -341,15 +341,18 @@ export function tween(
   to: number[],
   updatePoint: (p: number[]) => void,
   duration = 600,
-  easing = (t: number) => t * t * (3 - 2 * t)
+  easing = (t: number) => t * t * (3 - 2 * t),
+  onDrawStep?: (intermediate: number[]) => void
 ) {
   return new Promise<void>(resolve => {
     const t0 = performance.now();
     function frame(now: number) {
       const t = Math.min(1, (now - t0) / duration);
       const p = from.map((v, i) => v + (to[i] - v) * easing(t));
-      updatePoint(p);                         // «★» use new name
-      if (t < 1) requestAnimationFrame(frame); else resolve();
+      updatePoint(p);
+      onDrawStep?.(p);
+      if (t < 1) requestAnimationFrame(frame);
+      else resolve();
     }
     requestAnimationFrame(frame);
   });
@@ -380,6 +383,7 @@ export default function LinearProgramming() {
   const [running, setRunning] = useState(false);
   const [iter, setIter] = useState(0);
   const [path, setPath] = useState<number[][]>([]);
+  const [trailSegment, setTrailSegment] = useState<[number[], number[]] | null>(null);
 
   /* ---------- hi‑DPI canvas setup ---------- */
   useEffect(() => {
@@ -474,37 +478,89 @@ export default function LinearProgramming() {
       ctx.fill();
       ctx.stroke();
     }
+    // 3.5 Draw all constraint lines as dotted
+    for (const [a, b, c] of problem.constraints) {
+      const pts: number[][] = [];
 
-    // 4. direction vectors
+      if (Math.abs(b) > 1e-6) {
+        const x1 = -1000, y1 = (c - a * x1) / b;
+        const x2 = 1000, y2 = (c - a * x2) / b;
+        pts.push(toCanvas(x1, y1), toCanvas(x2, y2));
+      } else if (Math.abs(a) > 1e-6) {
+        const y1 = -1000, x1 = (c - b * y1) / a;
+        const y2 = 1000, x2 = (c - b * y2) / a;
+        pts.push(toCanvas(x1, y1), toCanvas(x2, y2));
+      } else continue;
+
+      const [[x1, y1], [x2, y2]] = pts;
+
+      ctx.beginPath();
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // 3.6 Draw solid edges along the convex hull
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+
+    for (let i = 0; i < hull.length; i++) {
+      const [x1, y1] = toCanvas(hull[i][0], hull[i][1]);
+      const [x2, y2] = toCanvas(hull[(i + 1) % hull.length][0], hull[(i + 1) % hull.length][1]);
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  
+    // 4. Live direction vectors
     ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 2;
     for (let i = 1; i < path.length; i++) {
       const [fx, fy] = toCanvas(path[i - 1][0], path[i - 1][1]);
       const [tx, ty] = toCanvas(path[i][0],     path[i][1]);
-      drawArrow(ctx, fx, fy, tx, ty);
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+    }
+
+    // 4.5 trail segment (current tween step)
+    if (trailSegment) {
+      const [[fx, fy], [tx, ty]] = trailSegment;
+      const [cx1, cy1] = toCanvas(fx, fy);
+      const [cx2, cy2] = toCanvas(tx, ty);
+      ctx.beginPath();
+      ctx.moveTo(cx1, cy1);
+      ctx.lineTo(cx2, cy2);
+      ctx.stroke();
     }
 
     // 5. points
-    ctx.fillStyle = '#ef4444';
     const [px, py] = toCanvas(point[0], point[1]);
+    const isOptimal =
+      optimal &&
+      Math.abs(point[0] - optimal[0]) < 1e-6 &&
+      Math.abs(point[1] - optimal[1]) < 1e-6;
+
+    ctx.fillStyle = isOptimal ? '#22c55e' : '#ef4444';
     ctx.beginPath();
     ctx.arc(px, py, 4, 0, Math.PI * 2);
     ctx.fill();
-
-    if (optimal) {
-      ctx.fillStyle = '#22c55e';
-      const [ox, oy] = toCanvas(optimal[0], optimal[1]);
-      ctx.beginPath();
-      ctx.arc(ox, oy, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }, [point, optimal, problem, path]);
+  }, [point, optimal, problem, path, trailSegment]);
 
   useEffect(draw, [draw]);
 
   /* actions */
   const randomise = () => {
     // Create a skewed octagon (same as before)
-    const n = 10;
+    const n = 8;
     const baseRadius = 15 + Math.random() * 15; // 15-30 base radius
     
     // Start with regular octagon angles, then add skew
@@ -604,11 +660,20 @@ export default function LinearProgramming() {
         steps[k - 1].sol,
         steps[k].sol,
         setPoint,
-        900 / speed
+        900 / speed,
+        undefined,
+        (current) => {
+          setTrailSegment([steps[k - 1].sol, current]);
+        }
       );
+      setTrailSegment(null);
       setPath(p => [...p, steps[k].sol]);
       setIter(i => i + 1);
       if (steps[k].optimal) setOptimal(steps[k].sol);
+    }
+
+    if (steps.length > 0 && steps[steps.length - 1].optimal) {
+      setOptimal(steps[steps.length - 1].sol);
     }
 
     if (status === 'infeasible')
