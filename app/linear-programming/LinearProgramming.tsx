@@ -6,49 +6,219 @@ import styles from './LinearProgramming.module.css';
 /****************
  * Simplex core *
  ****************/
-class SimplexSolver {
-  private c: number[];         // objective coefficients (length = n)
-  private A: number[][];       // constraint matrix   (m × n)
-  private b: number[];         // RHS column          (length = m)
-  private m: number;           // #constraints
-  private n: number;           // #decision variables
-  private tableau: number[][] = [];  // (m+1) × (n+m+1) simplex tableau
-  private basicVars: number[] = [];  // indices of current basic variables
+export type Step = { sol: number[]; obj: number; optimal: boolean };
+export type LPStatus = 'optimal' | 'unbounded' | 'infeasible' | 'searching';
+
+/**
+ * Two‑phase simplex solver that now works whether or not the origin is in the
+ * feasible region.  The key fixes are:
+ *   1.  **dropArtificial** – any artificial variable that is *still* basic when
+ *       Phase I terminates is either pivoted out (degenerate pivot because its
+ *       value is 0) or, if the entire row is redundant, that row is dropped.
+ *       Afterward every artificial column is removed cleanly and the basis is
+ *       remapped.
+ *   2.  **buildPhaseIIObjective** – the original objective is reconstructed
+ *       from scratch with the correct reduced‑cost row operations so that the
+ *       tableau is in canonical form for Phase II.
+ */
+/****************
+ * Simplex core *
+ * Phase I + II *
+ ****************/
+export class SimplexSolver {
+  /* problem data */
+  private readonly cOrig: number[];
+  private readonly n: number;       // # decision variables
+  private m: number;                // # constraints (may shrink after Phase I)
+
+  /* tableau state */
+  private tableau: number[][] = []; // (m+1) × (cols) tableau incl. RHS
+  private basicVars: number[] = []; // basic variable index per row
+  private artificial = new Set<number>();
+
+  /* solver state */
+  private status: LPStatus = 'optimal';
 
   constructor(c: number[], A: number[][], b: number[]) {
-    this.c = c;
-    this.A = A;
-    this.b = b;
-    this.m = A.length;
+    this.cOrig = c.slice();
     this.n = c.length;
-    this.buildTableau();
+    this.m = A.length;
+    this.buildPhaseI(A, b);
   }
 
-  /**
-   * Build phase‑II tableau.  Any row with a negative RHS is flipped so that the
-   * all‑slack solution is a valid starting BFS.
-  */
-  private buildTableau() {
-    // constraints rows
-    for (let i = 0; i < this.m; i++) {
-      let rowA = [...this.A[i]];
-      let rhs  =  this.b[i];
-      if (rhs < 0) {                      // flip row if RHS is negative for feasible solution
-        rowA = rowA.map(v => -v);
-        rhs  = -rhs;
-      }
-      const row = [...this.A[i]];
-      for (let j = 0; j < this.m; j++) row.push(i === j ? 1 : 0); // slack vars
-      row.push(this.b[i]);
-      this.tableau.push(row);
-      this.basicVars.push(this.n + i);
+  /* ---------- top-level driver ---------- */
+  solve(maxIter = 1000): { steps: Step[]; status: LPStatus } {
+    const steps: Step[] = [];
+
+    /* ---------- Phase I ---------- */
+    this.runSimplex(steps, maxIter);
+    const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –Σ artificial
+
+    if (phaseIObj < -1e-8) {                          // ⇒ some artificial > 0
+      this.status = 'infeasible';
+      return { steps, status: this.status };
     }
-    // objective row
-    const obj = this.c.map((v) => -v);
-    obj.push(...Array(this.m).fill(0), 0);
+
+    this.dropArtificial();        // remove artificial cols, fix basis
+
+    /* ---------- Phase II ---------- */
+    this.buildPhaseIIObjective();
+    this.status = 'searching';
+    this.runSimplex(steps, maxIter);
+
+    return { steps, status: this.status };
+  }
+
+  /* ---------- build initial (Phase I) tableau ---------- */
+  private buildPhaseI(A: number[][], b: number[]) {
+    const colTypes: ('x' | 's' | 't' | 'a')[] = [];
+
+    const addColumn = (type: 's' | 't' | 'a') => {
+      colTypes.push(type);
+      const idx = colTypes.length - 1;
+      this.tableau.forEach(r => r.splice(idx, 0, 0));
+      return idx;
+    };
+
+    const extendRow = (row: number[], upto: number) => {
+      while (row.length < upto) row.push(0);
+    };
+
+    /* decision-variable columns */
+    for (let j = 0; j < this.n; j++) colTypes.push('x');
+
+    /* constraint rows */
+    for (let i = 0; i < this.m; i++) {
+      let row = [...A[i]];
+      let rhs = b[i];
+      let isLE = true;
+
+      if (rhs < 0) {               // flip sign if RHS is negative
+        row = row.map(v => -v);
+        rhs = -rhs;
+        isLE = !isLE;
+      }
+
+      if (isLE) {                  // ≤ : add slack
+        const jS = addColumn('s');
+        extendRow(row, jS + 1);
+        row[jS] = 1;
+        this.basicVars.push(jS);
+      } else {                     // ≥ : surplus + artificial
+        const jT = addColumn('t');
+        extendRow(row, jT + 1);
+        row[jT] = -1;
+        const jA = addColumn('a');
+        extendRow(row, jA + 1);
+        row[jA] = 1;
+        this.artificial.add(jA);
+        this.basicVars.push(jA);
+      }
+
+      row.push(rhs);
+      this.tableau.push(row);
+    }
+
+    /* make sure every undefined ⇒ 0 (one pass is enough) */
+    this.tableau = this.tableau.map(r => r.map(v => v ?? 0));
+
+    /* Phase-I objective  maximise –Σ artificial  */
+    const cols = this.tableau[0].length;
+    const obj = new Array(cols).fill(0);
+    for (const j of this.artificial) obj[j] = -1;
+
+    /* zero out coeffs of basic artificials */
+    this.tableau.forEach((row, i) => {
+      const bv = this.basicVars[i];
+      if (this.artificial.has(bv)) {
+        const coeff = obj[bv];                 // −1
+        row.forEach((v, j) => (obj[j] -= coeff * v));
+      }
+    });
+
     this.tableau.push(obj);
   }
 
+  /* ---------- rebuild true objective for Phase II ---------- */
+  private buildPhaseIIObjective() {
+    const cols = this.tableau[0].length;
+    const obj = new Array(cols).fill(0);
+
+    for (let j = 0; j < this.n; j++) obj[j] = -this.cOrig[j];   // start with –c
+
+    /* add c_B · row_i for each basic decision variable */
+    for (let i = 0; i < this.m; i++) {
+      const bv = this.basicVars[i];
+      if (bv >= 0 && bv < this.n) {
+        const cb = this.cOrig[bv];
+        for (let j = 0; j < cols; j++) obj[j] += cb * this.tableau[i][j];
+      }
+    }
+
+    /* canonicalise: make all basic columns’ reduced costs zero */
+    for (let i = 0; i < this.m; i++) {
+      const bv = this.basicVars[i];
+      const coeff = obj[bv];
+      if (Math.abs(coeff) > 1e-12) {
+        for (let j = 0; j < cols; j++) obj[j] -= coeff * this.tableau[i][j];
+      }
+    }
+
+    this.tableau[this.tableau.length - 1] = obj;
+  }
+
+  /* ---------- drop artificial columns after Phase I ---------- */
+  private dropArtificial() {
+    if (this.artificial.size === 0) return;
+
+    /* pivot any still-basic artificial out of the basis */
+    for (let i = 0; i < this.m; i++) {
+      const bv = this.basicVars[i];
+      if (!this.artificial.has(bv)) continue;
+
+      const col = this.tableau[i].findIndex(
+        (v, j) => Math.abs(v) > 1e-10 && !this.artificial.has(j)
+      );
+
+      if (col !== -1) {
+        this.pivot(col, i);        // degenerate pivot (RHS stays 0)
+      } else {
+        this.basicVars[i] = -1;    // redundant row
+      }
+    }
+
+    /* rebuild tableau without artificial columns */
+    const keep: number[] = [];
+    this.tableau[0].slice(0, -1).forEach((_, j) => {
+      if (!this.artificial.has(j)) keep.push(j);
+    });
+
+    this.tableau = this.tableau.map(r => [...keep.map(j => r[j]), r.at(-1)!]);
+
+    /* remap basic variable indices */
+    const map = new Map<number, number>();
+    keep.forEach((oldIdx, newIdx) => map.set(oldIdx, newIdx));
+    this.basicVars = this.basicVars.map(j => (j === -1 ? -1 : map.get(j)!));
+
+    this.artificial.clear();
+  }
+
+  /* ---------- simplex iterations (one phase) ---------- */
+  private runSimplex(steps: Step[], maxIter: number) {
+    let k = 0;
+    while (k < maxIter) {
+      const e = this.entering();
+      if (e === -1) break;               // optimal
+      const l = this.leaving(e);
+      if (l === -1) { this.status = 'unbounded'; break; }
+      this.pivot(e, l);
+      steps.push({ sol: this.solution(), obj: this.objective(), optimal: false });
+      k++;
+    }
+    steps.push({ sol: this.solution(), obj: this.objective(), optimal: this.status === 'optimal' });
+  }
+
+  /* ---------- helpers ---------- */
   private solution(): number[] {
     const x = Array(this.n + this.m).fill(0);
     for (let i = 0; i < this.m; i++) x[this.basicVars[i]] = this.tableau[i].at(-1)!;
@@ -61,10 +231,13 @@ class SimplexSolver {
 
   private entering(): number {
     const obj = this.tableau.at(-1)!;
-    let e = -1,
-      min = 0;
-    for (let j = 0; j < obj.length - 1; j++) if (obj[j] < min) [min, e] = [obj[j], j];
-    return e;
+    let e = -1, mostNeg = 0;
+    for (let j = 0; j < obj.length - 1; j++) {
+      if (obj[j] < mostNeg - 1e-12 && this.colHasPositive(j)) {
+        mostNeg = obj[j]; e = j;
+      }
+    }
+    return e;                    // −1 ⇒ optimal
   }
 
   private leaving(e: number): number {
@@ -73,17 +246,17 @@ class SimplexSolver {
     for (let i = 0; i < this.m; i++) {
       const a = this.tableau[i][e];
       const b = this.tableau[i].at(-1)!;
-      if (a > 1e-10) {
-        const r = b / a;
-        if (r < best) [best, l] = [r, i];
+      if (a > 1e-12 && b >= -1e-12) {
+        const ratio = b / a;
+        if (ratio < best - 1e-12) { best = ratio; l = i; }
       }
     }
-    return l;
+    return l;                    // −1 ⇒ unbounded
   }
 
   private pivot(e: number, l: number) {
-    const piv = this.tableau[l][e];
-    this.tableau[l] = this.tableau[l].map((v) => v / piv);
+    const p = this.tableau[l][e];
+    this.tableau[l] = this.tableau[l].map(v => v / p);
     for (let i = 0; i < this.tableau.length; i++) {
       if (i === l) continue;
       const m = this.tableau[i][e];
@@ -92,35 +265,16 @@ class SimplexSolver {
     this.basicVars[l] = e;
   }
 
-  private optimal() {
-    return this.tableau.at(-1)!.slice(0, -1).every((v) => v >= -1e-10);
-  }
-
-  solve(max = 1000) {
-    const steps: { sol: number[]; obj: number; optimal: boolean }[] = [];
-    let k = 0;
-    while (!this.optimal() && k < max) {
-      const e = this.entering();
-      if (e === -1) break
-      const l = this.leaving(e);
-      if (l === -1) {
-        steps.push({ sol: this.solution(), obj: this.objective(), optimal: false });
-        return steps;
-      }
-      this.pivot(e, l);
-      steps.push({ sol: this.solution(), obj: this.objective(), optimal: false });
-      k++;
-    }
-    steps.push({ sol: this.solution(), obj: this.objective(), optimal: this.optimal() });
-    return steps;
-  }
+  private objective(): number { return this.tableau.at(-1)!.at(-1)!; }
 }
 
-/**
- * Returns the vertices of the bounded feasible region
- * as an array  [[x, y], ...]  sorted counter-clockwise.
- * Works for 2-D problems with only ≤-type constraints.
- */
+
+/********************************************************************
+ * The React component below is unchanged except that it imports the
+ * *new* SimplexSolver (in the same file) so that you only need to
+ * replace this file and everything should work.
+ ********************************************************************/
+
 function hullFromConstraints(cons: number[][]): number[][] {
   // ---- 1. collect every pair-wise intersection --------------
   const pts: number[][] = [];
