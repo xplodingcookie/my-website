@@ -51,7 +51,7 @@ export class SimplexSolver {
     /* ---------- Phase I ---------- */
     this.runSimplex(steps, maxIter);
     const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –Σ artificial
-    if (phaseIObj < -1e-8) {                          // some artificial > 0
+    if (phaseIObj > 1e-8) {                          // some artificial > 0
       this.status = 'infeasible';
       return { steps, status: this.status };
     }
@@ -122,7 +122,7 @@ export class SimplexSolver {
     /* Phase-I objective  maximise –Σ artificial  */
     const cols = this.tableau[0].length;
     const obj = new Array(cols).fill(0);
-    for (const j of this.artificial) obj[j] = -1;
+    for (const j of this.artificial) obj[j] = 1;
 
     /* zero out coeffs of basic artificials */
     this.tableau.forEach((row, i) => {
@@ -180,7 +180,9 @@ export class SimplexSolver {
       if (col !== -1) {
         this.pivot(col, i);        // degenerate pivot (RHS stays 0)
       } else {
-        this.basicVars[i] = -1;    // redundant row
+        this.tableau.splice(i, 1);
+        this.basicVars.splice(i, 1);
+        this.m--;                  // keep m consistent // redundant row
       }
     }
 
@@ -332,19 +334,36 @@ export default function LinearProgramming() {
   const [problem, setProblem] = useState({
     objective: [3, 2],
     constraints: [
-      [17, 5, 1125],
-      [18, 27, 2235],
-      [-6, 19, 1072],
-      [-27, -1, -312],
-      [-15, 5, 8],
-      [-12, -22, -447],
-      [8, -16, 147],
-      [17, -16, 517]
+      [ 9, 10, 899 ],
+      [ 7, -7, 63 ],
+      [ 3, 3, 327 ],
+      [ 0, 8, 425 ],
+      [ -2, 4, 116 ],
+      [ 8, 2, 453 ],
+      [ 2, 17, 1087 ],
+      [ -10, 3, -67 ],
+      [ 1, 8, 431 ],
+      [ 3, 6, 354 ],
+      [ -5, -2, -151 ],
+      [ -12, 4, 81 ],
+      [ -4, -8, -328 ],
+      [ -8, 3, -9 ],
+      [ 2, -6, -133 ],
+      [ -4, -19, -475 ],
+      [ -4, 2, -56 ],
+      [ -7, -4, -218 ],
+      [ -2, -11, -152 ],
+      [ -2, -7, -124 ],
+      [ 13, 2, 581 ],
+      [ -4, -18, -493 ],
+      [ -4, -5, -311 ],
+      [ 15, -10, 645 ],
+      [ 1, 3, 163 ],
     ],
   });
   const [point, setPoint] = useState([0, 0]);
   const [optimal, setOptimal] = useState<number[] | null>(null);
-  const [speed, setSpeed] = useState(3);
+  const [speed, setSpeed] = useState(5);
   const [running, setRunning] = useState(false);
   const [iter, setIter] = useState(0);
   const [path, setPath] = useState<number[][]>([]);
@@ -524,7 +543,7 @@ export default function LinearProgramming() {
 
   const randomise = () => {
     // Create a skewed octagon (same as before)
-    const n = 8;
+    const n = 15;
     const baseRadius = 15 + Math.random() * 15; // 15-30 base radius
     
     // Start with regular octagon angles, then add skew
@@ -612,20 +631,33 @@ export default function LinearProgramming() {
   const solve = async () => {
     if (running) return;
     setRunning(true);
+
+    const start = point.slice();
+
     const A = problem.constraints.map(v => v.slice(0, 2));
     const b = problem.constraints.map(v => v[2]);
     const solver = new SimplexSolver(problem.objective, A, b);
     const { steps, status } = solver.solve();
 
-    setPoint(steps[0].sol);
-    setPath([steps[0].sol]);
+    await tween(
+      start,
+      steps[0].sol,
+      setPoint,
+      1500 / speed,
+      undefined,
+      current => setTrailSegment([start, current])
+    );
+    setTrailSegment(null);
+
+    setPath([start, steps[0].sol]);
+    setIter(1);
 
     for (let k = 1; k < steps.length; k++) {
       await tween(
         steps[k - 1].sol,
         steps[k].sol,
         setPoint,
-        1500 / speed,
+        1200 / speed,
         undefined,
         (current) => {
           setTrailSegment([steps[k - 1].sol, current]);
