@@ -5,6 +5,7 @@ import styles from './LinearProgramming.module.css';
 
 /****************
  * Simplex core *
+ * Phase I + II *
  ****************/
 export type Step = { sol: number[]; obj: number; optimal: boolean };
 export type LPStatus = 'optimal' | 'unbounded' | 'infeasible' | 'searching';
@@ -50,7 +51,6 @@ export class SimplexSolver {
     /* ---------- Phase I ---------- */
     this.runSimplex(steps, maxIter);
     const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –Σ artificial
-
     if (phaseIObj < -1e-8) {                          // some artificial > 0
       this.status = 'infeasible';
       return { steps, status: this.status };
@@ -220,13 +220,17 @@ export class SimplexSolver {
 
   /* ---------- helpers ---------- */
   private solution(): number[] {
-    const x = Array(this.n + this.m).fill(0);
-    for (let i = 0; i < this.m; i++) x[this.basicVars[i]] = this.tableau[i].at(-1)!;
-    return x.slice(0, this.n);
+    const x = Array(this.n).fill(0);
+    for (let i = 0; i < this.m; i++) {
+      const bv = this.basicVars[i];
+      if (bv >= 0 && bv < this.n) x[bv] = this.tableau[i].at(-1)!;
+    }
+    return x;
   }
 
-  private objective(): number {
-    return this.tableau.at(-1)!.at(-1)!;
+  private colHasPositive(col: number, eps = 1e-12): boolean {
+    for (let i = 0; i < this.m; i++) if (this.tableau[i][col] > eps) return true;
+    return false;
   }
 
   private entering(): number {
@@ -241,8 +245,7 @@ export class SimplexSolver {
   }
 
   private leaving(e: number): number {
-    let l = -1,
-      best = Infinity;
+    let l = -1, best = Infinity;
     for (let i = 0; i < this.m; i++) {
       const a = this.tableau[i][e];
       const b = this.tableau[i].at(-1)!;
@@ -269,51 +272,33 @@ export class SimplexSolver {
 }
 
 function hullFromConstraints(cons: number[][]): number[][] {
-  // ---- 1. collect every pair-wise intersection --------------
   const pts: number[][] = [];
   for (let i = 0; i < cons.length; i++) {
     for (let j = i + 1; j < cons.length; j++) {
       const [a1, b1, c1] = cons[i];
       const [a2, b2, c2] = cons[j];
       const D = a1 * b2 - a2 * b1;
-      if (Math.abs(D) < 1e-9) continue;        // parallel
+      if (Math.abs(D) < 1e-9) continue;
       const x = (c1 * b2 - c2 * b1) / D;
       const y = (a1 * c2 - a2 * c1) / D;
       if (!isFinite(x) || !isFinite(y)) continue;
-      // ---- 2. keep it only if it satisfies every constraint --
       let ok = true;
       for (const [a, b, c] of cons) if (a * x + b * y > c + 1e-9) { ok = false; break; }
       if (ok) pts.push([x, y]);
     }
   }
   if (pts.length === 0) return [];
-
-  // ---- 3. sort the points CCW around their centroid ----------
-  const [cx, cy] = pts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0])
-                       .map(s => s / pts.length);
-  return pts
-    .sort((p, q) => Math.atan2(p[1] - cy, p[0] - cx) - Math.atan2(q[1] - cy, q[0] - cx));
+  const [cx, cy] = pts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0]).map(s => s / pts.length);
+  return pts.sort((p, q) => Math.atan2(p[1] - cy, p[0] - cx) - Math.atan2(q[1] - cy, q[0] - cx));
 }
 
 function fitToCanvas(pts: number[][], width: number, height: number, pad = 30) {
-  const xs = pts.map(([x]) => x),
-        ys = pts.map(([, y]) => y);
+  const xs = pts.map(([x]) => x), ys = pts.map(([, y]) => y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
-
-  const hullW = maxX - minX || 1;   // avoid /0 when hull is a point
-  const hullH = maxY - minY || 1;
-
-  const scale = Math.min(
-    (width  - 2 * pad) / hullW,
-    (height - 2 * pad) / hullH,
-  );
-
-  const origin = {
-    x: pad + (-minX) * scale,
-    y: height - pad - (-minY) * scale, // flip Y-axis
-  };
-
+  const hullW = maxX - minX || 1, hullH = maxY - minY || 1;
+  const scale = Math.min((width - 2 * pad) / hullW, (height - 2 * pad) / hullH);
+  const origin = { x: pad + (-minX) * scale, y: height - pad - (-minY) * scale };
   return { scale, origin };
 }
 
@@ -346,7 +331,6 @@ export default function LinearProgramming() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [problem, setProblem] = useState({
     objective: [3, 2],
-    objective: [3, 2],
     constraints: [
       [17, 5, 1125],
       [18, 27, 2235],
@@ -360,7 +344,7 @@ export default function LinearProgramming() {
   });
   const [point, setPoint] = useState([0, 0]);
   const [optimal, setOptimal] = useState<number[] | null>(null);
-  const [speed, setSpeed] = useState(2);
+  const [speed, setSpeed] = useState(3);
   const [running, setRunning] = useState(false);
   const [iter, setIter] = useState(0);
   const [path, setPath] = useState<number[][]>([]);
@@ -538,7 +522,6 @@ export default function LinearProgramming() {
 
   useEffect(draw, [draw]);
 
-  /* actions */
   const randomise = () => {
     // Create a skewed octagon (same as before)
     const n = 8;
@@ -586,12 +569,12 @@ export default function LinearProgramming() {
     ]);
 
     // ---- turn every edge into an inequality  a·x + b·y ≤ c ----
-    const [cx, cy] = verts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0])
-                          .map(s => s / n);
+    const [cx, cy] = translatedVerts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0])
+                                   .map(s => s / n);
     const cons: number[][] = [];
     for (let i = 0; i < n; i++) {
-      const [x1, y1] = verts[i];
-      const [x2, y2] = verts[(i + 1) % n];
+      const [x1, y1] = translatedVerts[i];
+      const [x2, y2] = translatedVerts[(i + 1) % n];
       // inward normal
       const nx =  y2 - y1;
       const ny = -(x2 - x1);
@@ -617,6 +600,7 @@ export default function LinearProgramming() {
     setProblem({ objective: obj, constraints: cons });
     reset();
   }
+
   const reset = () => {
     setPoint([0, 0]);
     setOptimal(null);
@@ -641,7 +625,7 @@ export default function LinearProgramming() {
         steps[k - 1].sol,
         steps[k].sol,
         setPoint,
-        900 / speed,
+        1500 / speed,
         undefined,
         (current) => {
           setTrailSegment([steps[k - 1].sol, current]);
@@ -771,6 +755,7 @@ export default function LinearProgramming() {
           </div>
         </div>
 
+        {/* Constraints - Full Width Below */}
         <div className={styles.infoCard}>
           <h2 className={styles.cardHeader}>Constraints</h2>
           <div className={styles.constraintsSection}>
