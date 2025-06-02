@@ -359,6 +359,8 @@ export default function LinearProgramming() {
       [ -4, -5, -311 ],
       [ 15, -10, 645 ],
       [ 1, 3, 163 ],
+      [0, -1, 0],
+      [-1, 0, 0]
     ],
   });
   const [point, setPoint] = useState([0, 0]);
