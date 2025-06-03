@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import styles from './LinearProgramming.module.css';
+import ControlPanel from './components/ControlPanel';
+import InfoPanel from './components/InfoPanel';
+import ConstraintsList from './components/ConstraintsList';
 
 /****************
  * Simplex core *
@@ -9,19 +12,7 @@ import styles from './LinearProgramming.module.css';
  ****************/
 export type Step = { sol: number[]; obj: number; optimal: boolean };
 export type LPStatus = 'optimal' | 'unbounded' | 'infeasible' | 'searching';
-
-/**
- * Two‑phase simplex solver that now works whether or not the origin is in the
- * feasible region.  The key fixes are:
- *   1.  **dropArtificial** – any artificial variable that is *still* basic when
- *       Phase I terminates is either pivoted out (degenerate pivot because its
- *       value is 0) or, if the entire row is redundant, that row is dropped.
- *       Afterward every artificial column is removed cleanly and the basis is
- *       remapped.
- *   2.  **buildPhaseIIObjective** – the original objective is reconstructed
- *       from scratch with the correct reduced‑cost row operations so that the
- *       tableau is in canonical form for Phase II.
- */
+export type Progress = 'idle' | 'searchingForBFS' | 'foundBFS' | 'searchingForOpitmal' | 'foundOptimal'
 
 export class SimplexSolver {
   /* problem data */
@@ -370,8 +361,9 @@ export default function LinearProgramming() {
   const [iter, setIter] = useState(0);
   const [path, setPath] = useState<number[][]>([]);
   const [trailSegment, setTrailSegment] = useState<[number[], number[]] | null>(null);
+  const [status, setStatus] = useState<Progress>('idle');
 
-  /* ---------- hi‑DPI canvas setup ---------- */
+  /* ---------- canvas setup ---------- */
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
@@ -693,46 +685,14 @@ export default function LinearProgramming() {
           </h1>
         </div>
 
-        {/* Controls Panel */}
-        <div className={styles.controls}>
-          <button 
-            className={`${styles.button} ${styles.buttonSecondary}`}
-            onClick={randomise}
-            disabled={running}
-          >
-            Randomise
-          </button>
-          
-          <button 
-            className={`${styles.button} ${styles.buttonPrimary}`}
-            onClick={solve} 
-            disabled={running}
-          >
-            {running ? 'Solving...' : 'Solve'}
-          </button>
-          
-          <button 
-            className={`${styles.button} ${styles.buttonSecondary}`}
-            onClick={reset}
-          >
-            Reset
-          </button>
-          
-          <div className={styles.speedControl}>
-            <span>Speed</span>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              value={speed}
-              onChange={(e) => setSpeed(+e.target.value)}
-              className={styles.slider}
-            />
-            <span className={styles.speedValue}>
-              {speed}
-            </span>
-          </div>
-        </div>
+        <ControlPanel 
+          onRandomise={randomise}
+          onSolve={solve}
+          onReset={reset}
+          speed={speed}
+          setSpeed={setSpeed}
+          running={running}
+        />
 
         {/* Main Content Area */}
         <div className={styles.mainContent}>
