@@ -20,3 +20,21 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+.section-wrap {
+  @apply px-6 sm:px-8 max-w-6xl mx-auto;
+}
+
+/* --- Fancy scrollbars (optional) --- */
+::-webkit-scrollbar { width: 12px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: theme("colors.gray.300");
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}

@@ -1,27 +1,24 @@
-import './globals.css';
+import "./globals.css";
+import { Inter, Poppins } from "next/font/google";
+import type { ReactNode } from "react";
+import Header from "./components/Header";
 
 export const metadata = {
-  title: 'My Portfolio',
-  description: 'Personal portfolio of Your Name',
+  title: "Dong Li – Creative Developer",
+  description: "Portfolio site for Dong Li – interactive experiences & elegant code.",
 };
 
-export default function RootLayout({ children }: {
-  children: React.ReactNode;
-}) {
+const inter   = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-poppins" });
+
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <header className="fixed inset-x-0 top-0 z-10 backdrop-blur bg-white/60 border-b border-black/5 flex justify-between px-8 py-3">
-          <div className="font-semibold">MyPortfolio</div>
-          <nav className="space-x-6">
-            <a href="#about">About</a>
-            <a href="#projects">Projects</a>
-            <a href="#contact">Contact</a>
-          </nav>
-        </header>
-        <main className="pt-20">{children}</main>
-        <footer className="text-center text-sm opacity-70 py-8">
-          © {new Date().getFullYear()} Your Name. All rights reserved.
+    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
+      <body className="bg-gradient-to-b from-white to-sky-50 text-neutral-900 antialiased selection:bg-amber-300 selection:text-neutral-900">
+        <Header />
+        <main id="top" className="pt-16 sm:pt-20">{children}</main>
+        <footer className="text-center text-xs py-10 opacity-70">
+          © {new Date().getFullYear()} Dong Li. All rights reserved.
         </footer>
       </body>
     </html>
