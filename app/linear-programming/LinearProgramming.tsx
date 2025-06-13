@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import styles from './LinearProgramming.module.css';
 import ControlPanel from './components/ControlPanel';
-import InfoPanel from './components/InfoPanel';
-import ConstraintsList from './components/ConstraintsList';
 
 /****************
  * Simplex core *
