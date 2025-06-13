@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import Header from "./components/Header";
 
 export const metadata = {
-  title: "Dong Li – Creative Developer",
-  description: "Portfolio site for Dong Li – interactive experiences & elegant code.",
+  title: "Dong Li - Software Developer",
+  description: "Portfolio site for Dong Li - interactive experiences & elegant code.",
 };
 
 const inter   = Inter({ subsets: ["latin"], variable: "--font-inter" });
