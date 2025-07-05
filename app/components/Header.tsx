@@ -4,24 +4,27 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { useCallback } from "react";
 
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleLogoClick = (e: React.MouseEvent) => {
+  const scrollOrNavigate = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault();
 
     if (pathname === "/") {
-      const top = document.getElementById("top");
-      if (top) {
-        top.scrollIntoView({ behavior: "smooth" });
-      } else {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+      const section = document.getElementById(id);
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth" });
       }
     } else {
-      router.push("/#top");
+      router.push(`/#${id}`);
     }
+  }, [pathname, router]);
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    scrollOrNavigate(e, "top");
   };
 
   return (
@@ -40,9 +43,9 @@ export default function Header() {
           <Image src="/frog_transparent.png" alt="Frog Logo" width={55} height={55} />
         </a>
         <nav className="hidden sm:flex gap-6 text-sm font-medium">
-          <a href="#about" className="hover:opacity-80 transition-opacity">About</a>
-          <a href="#projects" className="hover:opacity-80 transition-opacity">Projects</a>
-          <a href="#contact" className="hover:opacity-80 transition-opacity">Contact</a>
+          <a href="#about" onClick={(e) => scrollOrNavigate(e, "about")} className="hover:opacity-80 transition-opacity">About</a>
+          <a href="#projects" onClick={(e) => scrollOrNavigate(e, "projects")} className="hover:opacity-80 transition-opacity">Projects</a>
+          <a href="#contact" onClick={(e) => scrollOrNavigate(e, "contact")} className="hover:opacity-80 transition-opacity">Contact</a>
         </nav>
       </div>
     </motion.header>

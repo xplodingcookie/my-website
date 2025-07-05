@@ -11,7 +11,7 @@ export default function Home() {
       {/* About */}
       <Section id="about" title="About Me">
         <p>
-          I&apos;m Dong Li - a creative full-stack developer who blends math, design &amp; code to craft immersive web experiences. My toolbox spans TypeScript, Three.js, React/Next, and a perfectionist&apos;s eye for detail.
+          I&apos;m Dong Li - a data scientist turned software engineer with experience in full-stack data science, integration, and web design. I enjoy turning data into insights and building clean, interactive web apps using tools like Python, Javascript, and React.
         </p>
       </Section>
 
@@ -22,20 +22,21 @@ export default function Home() {
           description="A visual Simplex method playground built with Next.js, React-Three-Fiber & GLSL shaders."
           link="/linear-programming"
           image="/linear_programming.webp"
+          target="_self"
         />
         <Project
-          name="Realtime Metrics Deck"
-          description="A Grafana-style dashboard powered by Prometheus and WebSockets for millisecond updates."
-          link="https://github.com/dongli/realtime-metrics"
-          image="/images/projects/metrics.png"
+          name="Taxi Revenue Optimisation"
+          description="A data-driven analysis using machine learning to help taxi drivers maximise daily revenue by predicting fare amounts and identifying profitable zones."
+          link="/Optimising_Daily_Revenue_Dong_Li.pdf"
+          image="/taxi_pic.png"
         />
       </Section>
 
       {/* Contact */}
-      <Section id="contact" title="Let's work together">
-        <p className="mb-6">Got a project in mind or just want to say hi? Reach out! ✌️</p>
+      <Section id="contact" title="Come reach out!">
+        <p className="mb-6">Want to grab bubble tea or just want to say hi? Reach out! ✌️</p>
         <a
-          href="mailto:dong.li@phoebe.solutions"
+          href="mailto:lidc2504@gmail.com"
           className="inline-block rounded-full bg-neutral-900 px-6 py-3 text-white font-medium shadow-md hover:shadow-lg transition-shadow"
         >
           Email Me
@@ -80,11 +81,11 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 
-function Project({ name, description, link, image }: { name: string; description: string; link: string; image: string }) {
+function Project({ name, description, link, image, target = "_blank" }: { name: string; description: string; link: string; image: string, target?: string }) {
   return (
     <motion.a
       href={link}
-      target="_blank"
+      target={target}
       rel="noopener noreferrer"
       className="block rounded-2xl overflow-hidden border border-black/5 shadow-sm hover:shadow-md transition-shadow bg-white/80 backdrop-blur"
       initial={{ opacity: 0, y: 30 }}
