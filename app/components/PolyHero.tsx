@@ -9,7 +9,7 @@ export default function PolyHero() {
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    /* ── Boilerplate: scene, camera, renderer ── */
+    /* ── scene, camera, renderer ── */
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
       alpha: true,
@@ -153,7 +153,7 @@ export default function PolyHero() {
         Hi, I&rsquo;m <span className={styles.accent}>Dong Li</span>
       </h1>
       <p className={styles.tagline}>
-        Creative developer passionate about clean design and elegant code
+        I love everything maths and computer science :)
       </p>
     </section>
   );

@@ -1,6 +1,7 @@
 "use client";
-import { motion, stagger } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import PolyHero from "./components/PolyHero";
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -10,7 +11,7 @@ export default function Home() {
       {/* About */}
       <Section id="about" title="About Me">
         <p>
-          I'm Dong Li - a creative full-stack developer who blends math, design &amp; code to craft immersive web experiences. My toolbox spans TypeScript, Three.js, React/Next, and a perfectionist's eye for detail.
+          I&apos;m Dong Li - a creative full-stack developer who blends math, design &amp; code to craft immersive web experiences. My toolbox spans TypeScript, Three.js, React/Next, and a perfectionist&apos;s eye for detail.
         </p>
       </Section>
 
@@ -20,7 +21,7 @@ export default function Home() {
           name="Interactive Linear Programming"
           description="A visual Simplex method playground built with Next.js, React-Three-Fiber & GLSL shaders."
           link="/linear-programming"
-          image="/images/projects/lp.png"
+          image="/linear_programming.webp"
         />
         <Project
           name="Realtime Metrics Deck"
@@ -43,6 +44,15 @@ export default function Home() {
     </>
   );
 }
+
+const stagger = (staggerTime = 0.2): Variants => ({
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: staggerTime,
+    },
+  },
+});
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
@@ -69,6 +79,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
+
 function Project({ name, description, link, image }: { name: string; description: string; link: string; image: string }) {
   return (
     <motion.a
@@ -81,7 +92,16 @@ function Project({ name, description, link, image }: { name: string; description
       viewport={{ once: true, margin: "-100px" }}
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
-      <img src={image} alt={name} className="w-full h-56 object-cover" />
+      <div className="relative w-full h-56 overflow-hidden">
+        <Image
+          src={image}
+          alt={name}
+          fill
+          style={{ objectFit: "cover" }}
+          sizes="100vw"
+          priority
+        />
+      </div>
       <div className="p-6">
         <h3 className="font-semibold text-lg mb-2">{name}</h3>
         <p className="text-sm opacity-80 leading-relaxed">{description}</p>

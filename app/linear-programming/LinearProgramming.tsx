@@ -39,7 +39,7 @@ export class SimplexSolver {
 
     /* ---------- Phase I ---------- */
     this.runSimplex(steps, maxIter);
-    const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –Σ artificial
+    const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –sigma artificial
     if (phaseIObj > 1e-8) {                          // some artificial > 0
       this.status = 'infeasible';
       return { steps, status: this.status };

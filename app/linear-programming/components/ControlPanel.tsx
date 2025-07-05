@@ -22,7 +22,7 @@ const ControlPanel = ({ onRandomise, onSolve, onReset, speed, setSpeed, running 
       
       <button 
         className={`${styles.button} ${styles.buttonPrimary}`}
-        onClick={onSolve} 
+        onClick={onSolve}
         disabled={running}
       >
         {running ? 'Solving...' : 'Solve'}
