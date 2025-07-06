@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import styles from './LinearProgramming.module.css';
 import ControlPanel from './components/ControlPanel';
+import ConstraintsList from './components/ConstraintsList';
+import InfoPanel from './components/InfoPanel';
+import ProblemPanel from './components/ProblemPanel';
 
 /****************
  * Simplex core *
@@ -108,7 +111,7 @@ export class SimplexSolver {
     /* make sure every undefined => 0 (one pass is enough) */
     this.tableau = this.tableau.map(r => r.map(v => v ?? 0));
 
-    /* Phase-I objective  maximise –Σ artificial  */
+    /* Phase-I objective  maximise –sigma artificial  */
     const cols = this.tableau[0].length;
     const obj = new Array(cols).fill(0);
     for (const j of this.artificial) obj[j] = 1;
@@ -359,7 +362,7 @@ export default function LinearProgramming() {
   const [iter, setIter] = useState(0);
   const [path, setPath] = useState<number[][]>([]);
   const [trailSegment, setTrailSegment] = useState<[number[], number[]] | null>(null);
-  const [status, setStatus] = useState<Progress>('idle');
+  // const [status, setStatus] = useState<Progress>('idle');
 
   /* ---------- canvas setup ---------- */
   useEffect(() => {
@@ -596,7 +599,7 @@ export default function LinearProgramming() {
       let c =  sign * (nx * x1 + ny * y1);
 
       // randomly change them to avoid degeneracy
-      const perturbation = (Math.random() - 0.5) * 2;
+      const perturbation = Math.round((Math.random() - 0.5) * 2);;
       c += perturbation;
 
       cons.push([a, b, c]);
@@ -694,7 +697,7 @@ export default function LinearProgramming() {
 
         {/* Main Content Area */}
         <div className={styles.mainContent}>
-          {/* Canvas Container - Square */}
+          {/* Canvas Container */}
           <div className={styles.canvasContainer}>
             <canvas 
               ref={canvasRef} 
@@ -707,58 +710,25 @@ export default function LinearProgramming() {
           {/* Right Side Info Cards */}
           <div className={styles.sideInfo}>
             {/* Current Problem Card */}
-            <div className={styles.infoCard}>
-              <h2 className={styles.cardHeader}>Current Problem</h2>
-              <div className={styles.problemContent}>
-                <div className={styles.objectiveBox}>
-                  <div className={styles.objectiveLabel}>Maximize:</div>
-                  <div className={styles.objectiveFormula}>
-                    {problem.objective[0]}x₁ + {problem.objective[1]}x₂
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ProblemPanel
+              objective={problem.objective}
+              setObjective={(newObj) => setProblem(p => ({ ...p, objective: newObj }))}
+            />
 
             {/* Current State Card */}
-            <div className={styles.infoCard}>
-              <h2 className={styles.cardHeader}>
-                <div className={styles.statusDot}></div>
-                Current State
-              </h2>
-              <div className={styles.infoItems}>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Point:</span>
-                  <span className={`${styles.infoValue} ${styles.infoValueBlue}`}>
-                    ({point[0].toFixed(2)}, {point[1].toFixed(2)})
-                  </span>
-                </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Objective:</span>
-                  <span className={`${styles.infoValue} ${styles.infoValuePurple}`}>
-                    {(problem.objective[0] * point[0] + problem.objective[1] * point[1]).toFixed(2)}
-                  </span>
-                </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Iteration:</span>
-                  <span className={`${styles.infoValue} ${styles.infoValueAmber}`}>{iter}</span>
-                </div>
-              </div>
-            </div>
+              <InfoPanel 
+                point={point} 
+                objective={problem.objective} 
+                iter={iter} 
+              />
           </div>
         </div>
 
         {/* Constraints - Full Width Below */}
-        <div className={styles.infoCard}>
-          <h2 className={styles.cardHeader}>Constraints</h2>
-          <div className={styles.constraintsSection}>
-            <div className={styles.constraintsLabel}>Subject to:</div>
-            {problem.constraints.map(([a, b, rhs], i) => (
-              <div key={i} className={styles.constraint}>
-                {a}x₁ + {b}x₂ ≤ {rhs}
-              </div>
-            ))}
-          </div>
-        </div>
+        <ConstraintsList
+          constraints={problem.constraints}
+          setConstraints={(newCons) => setProblem(p => ({ ...p, constraints: newCons }))}
+        />
       </section>
     </div>
   );
