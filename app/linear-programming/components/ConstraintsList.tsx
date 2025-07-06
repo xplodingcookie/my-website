@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import styles from '../LinearProgramming.module.css';
 
 type Props = {
   constraints: number[][];
-  setConstraints?: (cons: number[][]) => void; // optional, only needed for editable tab
+  setConstraints?: (cons: number[][]) => void;
 };
 
 const fixedConstraints = [
@@ -14,48 +14,61 @@ const fixedConstraints = [
 const ConstraintsList = ({ constraints, setConstraints }: Props) => {
   const [tab, setTab] = useState<'view' | 'edit'>('view');
 
-  // Filter out fixed constraints from editable list (we fix these)
-  const editableConstraints = constraints.filter(
-    ([a, b]) => !(a === -1 && b === 0) && !(a === 0 && b === -1)
+  const editableConstraints = useMemo(() =>
+    constraints.filter(
+      ([a, b]) => !(a === -1 && b === 0) && !(a === 0 && b === -1)
+    ),
+    [constraints]
   );
 
-  // Add fixed constraints back to editable list when saving
+  const [inputVals, setInputVals] = useState<string[][]>(
+    editableConstraints.map(([a, b, rhs]) => [a, b, rhs].map(String))
+  );
+
+  useEffect(() => {
+    setInputVals(editableConstraints.map(([a, b, rhs]) => [a, b, rhs].map(String)));
+  }, [editableConstraints]);
+
   const saveConstraints = (newCons: number[][]) => {
     if (!setConstraints) return;
     setConstraints([...newCons, ...fixedConstraints]);
   };
 
-  const updateConstraint = (
-    index: number,
-    field: 0 | 1 | 2,
-    value: string,
-    finalize = false
+  const handleInputChange = (
+    row: number,
+    col: 0 | 1 | 2,
+    val: string
   ) => {
-    if (!setConstraints) return;
-    const newCons = [...editableConstraints];
+    if (val.length > 6) return;
+    setInputVals((prev) => {
+      const copy = prev.map((rowVals) => [...rowVals]);
+      copy[row][col] = val;
+      return copy;
+    });
+  };
 
-    const row = [...newCons[index]];
+  const handleInputBlur = (row: number, col: 0 | 1 | 2) => {
+    const str = inputVals[row][col].trim();
+    let parsed = parseFloat(str);
 
-    const trimmed = value.trim();
-    const valNum = parseFloat(trimmed);
-
-    if (trimmed === '') {
-      if (finalize) {
-        row[field] = 1;
-      } else {
-        row[field] = NaN;
-      }
-    } else if (!isNaN(valNum)) {
-      row[field] = valNum;
+    if (str === '') {
+      parsed = 1; // fallback default
+    } else if (isNaN(parsed)) {
+      parsed = editableConstraints[row][col]; // revert
     }
 
-    newCons[index] = row;
-    saveConstraints(newCons);
+    const updatedConstraints = [...editableConstraints];
+    updatedConstraints[row] = [...updatedConstraints[row]];
+    updatedConstraints[row][col] = parsed;
+
+    saveConstraints(updatedConstraints);
   };
 
   const addConstraint = () => {
     if (!setConstraints) return;
-    saveConstraints([...editableConstraints, [1, 1, 10]]);
+    const newConstraint = [1, 1, 10];
+    setInputVals([...inputVals, newConstraint.map(String)]);
+    saveConstraints([...editableConstraints, newConstraint]);
   };
 
   const removeConstraint = (index: number) => {
@@ -66,7 +79,7 @@ const ConstraintsList = ({ constraints, setConstraints }: Props) => {
 
   const clearAllConstraints = () => {
     if (!setConstraints) return;
-    saveConstraints([]); // Clear all editable constraints, keep fixed ones
+    saveConstraints([]);
   };
 
   return (
@@ -106,40 +119,40 @@ const ConstraintsList = ({ constraints, setConstraints }: Props) => {
         <>
           <div className={styles.constraintsSection}>
             <div className={styles.constraintsLabel}>Edit constraints (excluding x₁ ≥ 0, x₂ ≥ 0):</div>
-            {editableConstraints.length === 0 && (
+            {inputVals.length === 0 && (
               <div style={{ fontStyle: 'italic', color: '#64748b', marginBottom: '0.5rem' }}>
                 No custom constraints yet.
               </div>
             )}
-            {editableConstraints.map(([a, b, rhs], i) => (
+            {inputVals.map(([a, b, rhs], i) => (
               <div key={i} className={styles.constraintRow}>
                 <input
                   className={styles.constraintInput}
-                  type="number"
+                  type="text"
                   value={a}
-                  step="any"
-                  onChange={(e) => updateConstraint(i, 0, e.target.value)}
-                  onBlur={(e) => updateConstraint(i, 0, e.target.value, true)}
+                  onChange={(e) => handleInputChange(i, 0, e.target.value)}
+                  onBlur={() => handleInputBlur(i, 0)}
+                  size={Math.max(a.length, 2)}
                   aria-label={`Coefficient a of constraint ${i + 1}`}
                 />
                 <span>x₁ +</span>
                 <input
                   className={styles.constraintInput}
-                  type="number"
+                  type="text"
                   value={b}
-                  step="any"
-                  onChange={(e) => updateConstraint(i, 1, e.target.value)}
-                  onBlur={(e) => updateConstraint(i, 1, e.target.value, true)}
+                  onChange={(e) => handleInputChange(i, 1, e.target.value)}
+                  onBlur={() => handleInputBlur(i, 1)}
+                  size={Math.max(b.length, 2)}
                   aria-label={`Coefficient b of constraint ${i + 1}`}
                 />
                 <span>x₂ ≤</span>
                 <input
                   className={styles.constraintInput}
-                  type="number"
+                  type="text"
                   value={rhs}
-                  step="any"
-                  onChange={(e) => updateConstraint(i, 2, e.target.value)}
-                  onBlur={(e) => updateConstraint(i, 2, e.target.value, true)}
+                  onChange={(e) => handleInputChange(i, 2, e.target.value)}
+                  onBlur={() => handleInputBlur(i, 2)}
+                  size={Math.max(rhs.length, 2)}
                   aria-label={`Right-hand side of constraint ${i + 1}`}
                 />
                 <button
