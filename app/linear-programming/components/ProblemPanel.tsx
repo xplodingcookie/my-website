@@ -84,7 +84,7 @@ const ObjectiveEditor = ({ objective, setObjective }: Props) => {
               value={inputVals[1]}
               onChange={(e) => handleInputChange(1, e.target.value)}
               onBlur={() => handleInputBlur(1)}
-              size={Math.max(inputVals[0].length || 1, 3)}
+              size={Math.max(inputVals[1].length || 1, 3)}
               className={styles.inputInline}
               aria-label="Coefficient for x₂"
             />
