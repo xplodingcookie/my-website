@@ -15,7 +15,16 @@ export default function Header() {
     if (pathname === "/") {
       const section = document.getElementById(id);
       if (section) {
-        section.scrollIntoView({ behavior: "smooth" });
+        const headerHeight = window.innerWidth >= 640 ? 80 : 64;
+        const additionalOffset = 20;
+        
+        const elementPosition = section.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerHeight - additionalOffset;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth"
+        });
       }
     } else {
       router.push(`/#${id}`);

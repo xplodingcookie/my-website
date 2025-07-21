@@ -1,4 +1,5 @@
 import styles from '../LinearProgramming.module.css'
+import { useCallback } from 'react';
 
 type Props = {
   onRandomise: () => void;
@@ -10,6 +11,12 @@ type Props = {
 };
 
 const ControlPanel = ({ onRandomise, onSolve, onReset, speed, setSpeed, running }: Props) => {
+  const handleSpeedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSpeed = +e.target.value;
+    if (newSpeed >= 1 && newSpeed <= 10) {
+      setSpeed(newSpeed);
+    }
+  }, [setSpeed]);
   return (
     <div className={styles.controls}>
       <button 
@@ -42,7 +49,8 @@ const ControlPanel = ({ onRandomise, onSolve, onReset, speed, setSpeed, running 
           min={1}
           max={10}
           value={speed}
-          onChange={(e) => setSpeed(+e.target.value)}
+          onChange={handleSpeedChange}
+          disabled={running}
           className={styles.slider}
         />
         <span className={styles.speedValue}>

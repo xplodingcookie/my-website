@@ -14,6 +14,7 @@ export default function PolyHero() {
       canvas: canvasRef.current,
       alpha: true,
       antialias: true,
+      preserveDrawingBuffer: true
     });
     renderer.setPixelRatio(window.devicePixelRatio);
 

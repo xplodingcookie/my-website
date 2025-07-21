@@ -1,18 +1,23 @@
 "use client";
 import { motion, Variants } from "framer-motion";
 import PolyHero from "./components/PolyHero";
-import Image from "next/image";
+import Section from "./components/Section";
+import Project from "./components/Project";
+import Education from "./components/Education";
 
 export default function Home() {
   return (
     <>
       <PolyHero />
-
       {/* About */}
       <Section id="about" title="About Me">
-        <p>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}>
           I&apos;m Dong Li - a data scientist turned software engineer with experience in full-stack data science, integration, and web design. I enjoy turning data into insights and building clean, interactive web apps using tools like Python, Javascript, and React.
-        </p>
+        </motion.p>
       </Section>
 
       {/* Projects */}
@@ -31,6 +36,41 @@ export default function Home() {
           image="/taxi_pic.png"
         />
       </Section>
+
+      {/* Education */}
+      <Section id="education" title="Education">
+        <motion.div 
+          variants={stagger(0.15)} 
+          initial="hidden" 
+          whileInView="show" 
+          viewport={{ once: true, margin: "-100px" }}
+          className="space-y-8"
+        >
+          <Education 
+            degree="Bachelor of Science - Data Science"
+            school="University of Melbourne"
+            period="2022-2024"
+            grade=""
+            details="Specialized in machine learning, statistical analysis, and data visualization. Completed projects in predictive modeling, natural language processing, and big data analytics."
+            highlights={["Machine Learning", "Statistical Analysis", "Data Visualization", "NLP", "Big Data Analytics"]}
+            logoUrl="/UoMlogo.png"
+          />
+          <Education 
+            degree="Exchange - Applied Mathematics"
+            school="University of British Columbia"
+            period="2018-2021"
+            grade=""
+            details="Completed coursework in the Faculty of Mathematics, with a focus on linear programming, applied linear algebra, and statistical inference."
+            highlights={[
+              "Linear Programming",
+              "Applied Linear Algebra",
+              "Statistical Inference"
+            ]}
+            logoUrl="/UBClogo.png"
+          />
+        </motion.div>
+      </Section>
+
 
       {/* Contact */}
       <Section id="contact" title="Come reach out!">
@@ -54,59 +94,3 @@ const stagger = (staggerTime = 0.2): Variants => ({
     },
   },
 });
-
-function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return (
-    <section id={id} className="section-wrap max-w-5xl mx-auto px-6 py-28">
-      <motion.h2
-        className="text-3xl sm:text-4xl font-semibold mb-6 tracking-tight"
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-      >
-        {title}
-      </motion.h2>
-      <motion.div
-        initial="hidden"
-        whileInView="show"
-        variants={stagger(0.2)}
-        viewport={{ once: true, margin: "-100px" }}
-        className="space-y-6 text-neutral-700 leading-relaxed"
-      >
-        {children}
-      </motion.div>
-    </section>
-  );
-}
-
-
-function Project({ name, description, link, image, target = "_blank" }: { name: string; description: string; link: string; image: string, target?: string }) {
-  return (
-    <motion.a
-      href={link}
-      target={target}
-      rel="noopener noreferrer"
-      className="block rounded-2xl overflow-hidden border border-black/5 shadow-sm hover:shadow-md transition-shadow bg-white/80 backdrop-blur"
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-    >
-      <div className="relative w-full h-56 overflow-hidden">
-        <Image
-          src={image}
-          alt={name}
-          fill
-          style={{ objectFit: "cover" }}
-          sizes="100vw"
-          priority
-        />
-      </div>
-      <div className="p-6">
-        <h3 className="font-semibold text-lg mb-2">{name}</h3>
-        <p className="text-sm opacity-80 leading-relaxed">{description}</p>
-      </div>
-    </motion.a>
-  );
-}

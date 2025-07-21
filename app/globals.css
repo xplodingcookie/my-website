@@ -26,7 +26,7 @@ html {
 }
 
 .section-wrap {
-  @apply px-6 sm:px-8 max-w-6xl mx-auto;
+  @apply pt-6 sm:px-8 max-w-6xl mx-auto;
 }
 
 /* --- Fancy scrollbars (optional) --- */

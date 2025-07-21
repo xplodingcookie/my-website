@@ -536,6 +536,16 @@ export default function LinearProgramming() {
 
   useEffect(draw, [draw]);
 
+  // // Reset when objective changes
+  // useEffect(() => {
+  //   reset();
+  // }, [problem.objective]);
+
+  // // Reset when constraints change
+  // useEffect(() => {
+  //   reset();
+  // }, [problem.constraints]);
+
   const randomise = () => {
     // Create a skewed octagon (same as before)
     const n = 15;
@@ -624,10 +634,12 @@ export default function LinearProgramming() {
   };
 
   const solve = async () => {
+    reset();
     if (running) return;
     setRunning(true);
 
-    const start = point.slice();
+    const start = [0, 0];
+    setTrailSegment(null);
 
     const A = problem.constraints.map(v => v.slice(0, 2));
     const b = problem.constraints.map(v => v[2]);
