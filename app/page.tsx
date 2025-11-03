@@ -49,7 +49,7 @@ export default function Home() {
           <Education 
             degree="Bachelor of Science - Data Science"
             school="University of Melbourne"
-            period="2022-2024"
+            period="2022 - 2024"
             grade=""
             details="Specialized in machine learning, statistical analysis, and data visualization. Completed projects in predictive modeling, natural language processing, and big data analytics."
             highlights={["Machine Learning", "Statistical Analysis", "Data Visualization", "NLP", "Big Data Analytics"]}
@@ -58,7 +58,7 @@ export default function Home() {
           <Education 
             degree="Exchange - Applied Mathematics"
             school="University of British Columbia"
-            period="2018-2021"
+            period="2023"
             grade=""
             details="Completed coursework in the Faculty of Mathematics, with a focus on linear programming, applied linear algebra, and statistical inference."
             highlights={[

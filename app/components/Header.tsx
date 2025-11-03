@@ -52,6 +52,7 @@ export default function Header() {
         </a>
         <nav className="hidden sm:flex gap-6 text-sm font-medium">
           <a href="#about" onClick={(e) => scrollOrNavigate(e, "about")} className="hover:opacity-80 transition-opacity">About</a>
+          <a href="/Resume_Dong_Li.pdf" target="_blank">Resume</a>
           <a href="#projects" onClick={(e) => scrollOrNavigate(e, "projects")} className="hover:opacity-80 transition-opacity">Projects</a>
           <a href="#contact" onClick={(e) => scrollOrNavigate(e, "contact")} className="hover:opacity-80 transition-opacity">Contact</a>
         </nav>

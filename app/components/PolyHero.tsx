@@ -150,10 +150,11 @@ export default function PolyHero() {
   return (
     <section className={styles.hero}>
       <canvas ref={canvasRef} className={styles.canvas} />
-      <h1 className={styles.title}>
-        Hi, I&rsquo;m <span className={styles.accent}>Dong Li</span>
+      <h1 className="font-myFont text-5xl">
+        <span className="font-[400]">Hi, I’m </span>
+        <span className="font-[700] text-indigo-500">Dong Li</span>
       </h1>
-      <p className={styles.tagline}>
+      <p className={`${styles.tagline}`}>
         I love everything maths and computer science :)
       </p>
     </section>
