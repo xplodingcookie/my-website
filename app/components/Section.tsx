@@ -19,7 +19,7 @@ interface SectionProps {
 
 export default function Section({ id, title, children }: SectionProps) {
   return (
-    <section id={id} className="section-wrap max-w-5xl mx-auto px-6 py-28">
+    <section id={id} className="section-wrap max-w-5xl mx-auto px-6 py-20">
       <motion.h2
         className="text-3xl sm:text-4xl font-semibold mb-6 tracking-tight"
         initial={{ opacity: 0, y: 20 }}

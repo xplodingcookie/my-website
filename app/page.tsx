@@ -1,6 +1,7 @@
 "use client";
 import { motion, Variants } from "framer-motion";
 import PolyHero from "./components/PolyHero";
+import Experience from "./components/Experience"
 import Section from "./components/Section";
 import Project from "./components/Project";
 import Education from "./components/Education";
@@ -18,6 +19,44 @@ export default function Home() {
           transition={{ duration: 0.6, ease: "easeOut" }}>
           I&apos;m Dong Li - a data scientist turned software engineer with experience in full-stack data science, integration, and web design. I enjoy turning data into insights and building clean, interactive web apps using tools like Python, Javascript, and React.
         </motion.p>
+      </Section>
+
+      {/* Experience */}
+      <Section id="experience" title="Experience">
+        <motion.div 
+          variants={stagger(0.15)} 
+          initial="hidden" 
+          whileInView="show" 
+          viewport={{ once: true, margin: "-100px" }}
+          className="space-y-8"
+        >
+          <Experience
+            title="Data Scientist / Software Engineer"
+            company="Phoebe Solutions"
+            period="2025 - Present"
+            location="Melbourne, Australia"
+            description="Continuously developed both front-end and back-end features for the Phoebe optimisation engine, adding new tools and improving workflows. Independently developed and deployed the new version of the webPAS add-in, now used by thousands of hospital staff. Built a RESTful API to extract and process data from internal databases for client-side analytics, enabling data-driven decision-making across platforms."
+            highlights={["API Development", "Full-Stack Web Apps", "Machine Learning"]}
+            logoUrl="/phoebe_logo.png"
+          />
+          {/* <Experience
+            title="Data Science Intern"
+            company="Phoebe Solutions"
+            period="2023"
+            location="Melbourne, Australia"
+            description="Worked on predictive modeling and data analytics projects, transforming raw data into actionable insights."
+            highlights={["Predictive Modeling", "Data Analytics", "Visualization"]}
+          /> */}
+          <Experience
+            title="Integration Consultant"
+            company="Interweave Integrations"
+            period="2024"
+            location="Melbourne, Australia"
+            description="Contributed to the foundational setup of Interweave Integrations' Microsoft infrastructure, supported early DevOps processes, and assisted with code review for components of a WebPAS integration. Played a small but impactful role in enabling the company’s mission to deliver intelligent, robust healthcare integration solutions that bridge legacy systems and modern architectures."
+            highlights={["Integration", "Data Analytics", "Visualization"]}
+            logoUrl="/interweave_integration_logo.png"
+          />
+        </motion.div>
       </Section>
 
       {/* Projects */}

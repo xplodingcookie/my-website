@@ -7,69 +7,67 @@ const fadeInUp: Variants = {
   show: { opacity: 1, y: 0 },
 };
 
-interface EducationProps {
-  degree: string;
-  school: string;
+interface ExperienceProps {
+  title: string;
+  company: string;
   period: string;
-  grade?: string;
-  details: string;
+  location?: string;
+  description: string;
   highlights: string[];
-  logoUrl: string;
+  logoUrl?: string;
 }
 
-export default function Education({ 
-  degree,
-  school,
+export default function Experience({
+  title,
+  company,
   period,
-  grade,
-  details,
+  location,
+  description,
   highlights,
-  logoUrl
-}: EducationProps) {
+  logoUrl,
+}: ExperienceProps) {
   return (
     <motion.div className="relative group" variants={fadeInUp}>
       <div className="flex gap-6">
-        {/* University Logo */}
-        <div className="flex-shrink-0 w-16 h-16 overflow-hidden">
-          <Image
-            src={logoUrl}
-            alt={`${school} logo`}
-            width={64}
-            height={64}
-            className="w-full h-full object-contain"
-            quality={100}
-            priority
-          />
-        </div>
-        
+        {/* Company Logo */}
+        {logoUrl && (
+          <div className="flex-shrink-0 w-16 h-16 overflow-hidden border border-gray-300">
+            <Image
+              src={logoUrl}
+              alt={`${company} logo`}
+              width={64}
+              height={64}
+              className="w-full h-full object-contain"
+              quality={100}
+              priority
+            />
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex-1 pb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
-            <h3 className="text-xl font-semibold text-neutral-90">
-              {degree}
-            </h3>
-            <span className="text-sm font-medium text-neutral-500 px-3 py-1 rounded-full mt-1 sm:mt-0 self-start">
+            <h3 className="text-xl font-semibold text-neutral-900">{title}</h3>
+            <span className="text-sm font-medium text-neutral-500 px-3 py-1 rounded-full mt-1 sm:mt-0">
               {period}
             </span>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3">
-            <p className="text-neutral-600 font-medium">{school}</p>
-            {grade && (
+            <p className="text-neutral-600 font-medium">{company}</p>
+            {location && (
               <span className="text-sm px-2 py-1 rounded mt-1 sm:mt-0 self-start">
-                {grade}
+                {location}
               </span>
             )}
           </div>
-          
-          <p className="text-sm text-neutral-700 leading-relaxed mb-4">
-            {details}
-          </p>
-          
-          {/* Key highlights */}
+
+          <p className="text-sm text-neutral-700 leading-relaxed mb-4">{description}</p>
+
+          {/* Highlights */}
           <div className="flex flex-wrap gap-2">
             {highlights.map((highlight, idx) => (
-              <span 
+              <span
                 key={idx}
                 className="text-xs bg-white border border-neutral-200 text-neutral-700 px-3 py-1.5 rounded-full hover:border-neutral-300 transition-colors"
               >
