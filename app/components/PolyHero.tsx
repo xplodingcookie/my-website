@@ -154,7 +154,7 @@ export default function PolyHero() {
         <span className="font-[400]">Hi, I’m </span>
         <span className="font-[700] text-indigo-500">Dong Li</span>
       </h1>
-      <p className={`${styles.tagline}`}>
+      <p className={`${styles.tagline} px-5`}>
         I love everything maths and computer science :)
       </p>
     </section>

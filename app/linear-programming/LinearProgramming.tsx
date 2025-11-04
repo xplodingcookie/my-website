@@ -536,16 +536,6 @@ export default function LinearProgramming() {
 
   useEffect(draw, [draw]);
 
-  // // Reset when objective changes
-  // useEffect(() => {
-  //   reset();
-  // }, [problem.objective]);
-
-  // // Reset when constraints change
-  // useEffect(() => {
-  //   reset();
-  // }, [problem.constraints]);
-
   const randomise = () => {
     // Create a skewed octagon (same as before)
     const n = 15;

@@ -5,6 +5,8 @@ import Experience from "./components/Experience"
 import Section from "./components/Section";
 import Project from "./components/Project";
 import Education from "./components/Education";
+import { AiOutlineMail } from "react-icons/ai";
+import { FaLinkedin } from "react-icons/fa";
 
 export default function Home() {
   return (
@@ -113,13 +115,27 @@ export default function Home() {
 
       {/* Contact */}
       <Section id="contact" title="Come reach out!">
-        <p className="mb-6">Want to grab bubble tea or just want to say hi? Reach out! ✌️</p>
-        <a
-          href="mailto:lidc2504@gmail.com"
-          className="inline-block rounded-full bg-neutral-900 px-6 py-3 text-white font-medium shadow-md hover:shadow-lg transition-shadow"
-        >
-          Email Me
-        </a>
+        <p className="mb-6">Wanna grab milk tea or just wanna say hi? Reach out! ✌️</p>
+        <div className="flex gap-4 items-center">
+          {/* Email */}
+          <a
+            href="mailto:lidc2504@gmail.com"
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 hover:bg-indigo-500 transition-all shadow-md hover:scale-110"
+          >
+            <AiOutlineMail className="text-white text-xl" />
+
+          </a>
+
+          {/* LinkedIn */}
+          <a
+            href="https://www.linkedin.com/in/dongchi-li"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 hover:bg-indigo-500 transition-all shadow-md hover:scale-110"
+          >
+            <FaLinkedin className="text-white text-xl" />
+          </a>
+        </div>
       </Section>
     </>
   );

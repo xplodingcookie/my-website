@@ -53,6 +53,10 @@
   background-color: rgb(226 232 240);
 }
 
+.buttonSecondary:disabled {
+  cursor: not-allowed;
+}
+
 .buttonPrimary {
   background-color: rgb(59 130 246);
   color: white;

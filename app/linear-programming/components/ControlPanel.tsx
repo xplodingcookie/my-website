@@ -38,6 +38,7 @@ const ControlPanel = ({ onRandomise, onSolve, onReset, speed, setSpeed, running 
       <button 
         className={`${styles.button} ${styles.buttonSecondary}`}
         onClick={onReset}
+        disabled={running}
       >
         Reset
       </button>
