@@ -7,6 +7,7 @@ import Project from "./components/Project";
 import Education from "./components/Education";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaLinkedin } from "react-icons/fa";
+import { FaGithub } from "react-icons/fa";
 
 export default function Home() {
   return (
@@ -76,6 +77,12 @@ export default function Home() {
           link="/Optimising_Daily_Revenue_Dong_Li.pdf"
           image="/taxi_pic.png"
         />
+        <Project
+          name="Website Source Code, Github & More"
+          description="My github with uni projects, personal projects and unfinished dreams :P"
+          link="https://github.com/xplodingcookie/my-website"
+          image="/website_banner.png"
+        />
       </Section>
 
       {/* Education */}
@@ -134,6 +141,16 @@ export default function Home() {
             className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 hover:bg-indigo-500 transition-all shadow-md hover:scale-110"
           >
             <FaLinkedin className="text-white text-xl" />
+          </a>
+
+          {/* GitHub */}
+          <a
+            href="https://github.com/xplodingcookie"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 hover:bg-indigo-500 transition-all shadow-md hover:scale-110"
+          >
+            <FaGithub className="text-white text-xl" />
           </a>
         </div>
       </Section>

@@ -1,15 +1,17 @@
-'use client';
+"use client";
 
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useState } from "react";
+import { Menu, X } from "lucide-react";
 
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
-  const scrollOrNavigate = useCallback((e: React.MouseEvent, id: string) => {
+  const scrollOrNavigate = useCallback((e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, id: string) => {
     e.preventDefault();
 
     if (pathname === "/") {
@@ -29,9 +31,10 @@ export default function Header() {
     } else {
       router.push(`/#${id}`);
     }
+    setOpen(false);
   }, [pathname, router]);
 
-  const handleLogoClick = (e: React.MouseEvent) => {
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
     scrollOrNavigate(e, "top");
   };
 
@@ -57,7 +60,29 @@ export default function Header() {
           <a href="#projects" onClick={(e) => scrollOrNavigate(e, "projects")} className="hover:opacity-80 transition-opacity">Projects</a>
           <a href="#contact" onClick={(e) => scrollOrNavigate(e, "contact")} className="hover:opacity-80 transition-opacity">Contact</a>
         </nav>
+        <div className="sm:hidden">
+          <button onClick={() => setOpen(!open)} className="p-2 rounded-md focus:outline-none">
+            {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="sm:hidden w-full absolute top-16 left-0 z-40 flex flex-col gap-4 px-6 py-4 bg-gradient-to-r from-blue-100 to-pink-1000 text-black font-medium font-sans border-b border-black/5"
+          >
+            <a href="#about" onClick={(e) => scrollOrNavigate(e, "about")} className="hover:opacity-80 transition-opacity">About</a>
+            <a href="#experience" onClick={(e) => scrollOrNavigate(e, "experience")} className="hover:opacity-80 transition-opacity">Experience</a>
+            <a href="/Resume_Dong_Li.pdf" target="_blank">Resume</a>
+            <a href="#projects" onClick={(e) => scrollOrNavigate(e, "projects")} className="hover:opacity-80 transition-opacity">Projects</a>
+            <a href="#contact" onClick={(e) => scrollOrNavigate(e, "contact")} className="hover:opacity-80 transition-opacity">Contact</a>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   );
 }
