@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
 export default function Header() {
@@ -38,6 +38,16 @@ export default function Header() {
     scrollOrNavigate(e, "top");
   };
 
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuHeight, setMenuHeight] = useState(0);
+
+  useEffect(() => {
+    if (menuRef.current) {
+      setMenuHeight(menuRef.current.scrollHeight);
+    }
+  }, [open]);
+
+
   return (
     <motion.header
       initial={{ y: 0, opacity: 0 }}
@@ -69,11 +79,14 @@ export default function Header() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="sm:hidden w-full absolute top-16 left-0 z-40 flex flex-col gap-4 px-6 py-4 bg-gradient-to-r from-blue-100 to-pink-1000 text-black font-medium font-sans border-b border-black/5"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: menuHeight }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+            ref={menuRef}
+            className="sm:hidden w-full overflow-hidden absolute top-16 left-0 z-40 flex flex-col gap-4 
+              px-6 py-4 bg-gradient-to-r from-blue-100/90 to-pink-200/90 backdrop-blur-md 
+              supports-[backdrop-filter]:bg-white/60 text-black font-medium border-b border-black/5"
           >
             <a href="#about" onClick={(e) => scrollOrNavigate(e, "about")} className="hover:opacity-80 transition-opacity">About</a>
             <a href="#experience" onClick={(e) => scrollOrNavigate(e, "experience")} className="hover:opacity-80 transition-opacity">Experience</a>

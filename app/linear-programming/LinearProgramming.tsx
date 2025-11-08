@@ -22,7 +22,7 @@ export class SimplexSolver {
   private m: number;                // # constraints (may shrink after Phase I)
 
   /* tableau state */
-  private tableau: number[][] = []; // (m+1) × (cols) tableau incl. RHS
+  private tableau: number[][] = []; // (m+1) x (cols) tableau with RHS
   private basicVars: number[] = []; // basic variable index per row
   private artificial = new Set<number>();
 
@@ -43,12 +43,12 @@ export class SimplexSolver {
     /* ---------- Phase I ---------- */
     this.runSimplex(steps, maxIter);
     const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –sigma artificial
-    if (phaseIObj > 1e-8) {                          // some artificial > 0
+    if (phaseIObj > 1e-8) {  // some artificial > 0
       this.status = 'infeasible';
       return { steps, status: this.status };
     }
 
-    this.dropArtificial();        // remove artificial cols, fix basis
+    this.dropArtificial();  // remove artificial cols, fix basis
 
     /* ---------- Phase II ---------- */
     this.buildPhaseIIObjective();
@@ -120,7 +120,7 @@ export class SimplexSolver {
     this.tableau.forEach((row, i) => {
       const bv = this.basicVars[i];
       if (this.artificial.has(bv)) {
-        const coeff = obj[bv];                 // −1
+        const coeff = obj[bv];
         row.forEach((v, j) => (obj[j] -= coeff * v));
       }
     });
@@ -174,7 +174,7 @@ export class SimplexSolver {
       } else {
         this.tableau.splice(i, 1);
         this.basicVars.splice(i, 1);
-        this.m--;                  // keep m consistent // redundant row
+        this.m--;                  // keep m consistent
       }
     }
 
@@ -235,7 +235,8 @@ export class SimplexSolver {
         mostNeg = obj[j]; e = j;
       }
     }
-    return e;                    // −1 => optimal
+    // −1 => optimal
+    return e;
   }
 
   private leaving(e: number): number {
@@ -248,7 +249,8 @@ export class SimplexSolver {
         if (ratio < best - 1e-12) { best = ratio; l = i; }
       }
     }
-    return l;                    // −1 => unbounded
+    // −1 => unbounded
+    return l;
   }
 
   private pivot(e: number, l: number) {
@@ -537,15 +539,15 @@ export default function LinearProgramming() {
   useEffect(draw, [draw]);
 
   const randomise = () => {
-    // Create a skewed octagon (same as before)
+    // Create a skewed octagon
     const n = 15;
-    const baseRadius = 15 + Math.random() * 15; // 15-30 base radius
+    const baseRadius = 15 + Math.random() * 15;
     
     // Start with regular octagon angles, then add skew
     const baseAngles = [...Array(n)].map((_, i) => (i * 2 * Math.PI) / n);
     
     // Add random skew to each angle (but keep them ordered)
-    const skewFactor = 0.3 + Math.random() * 0.4; // 0.3 to 0.7
+    const skewFactor = 0.3 + Math.random() * 0.4;
     // (angle, i)
     const angles = baseAngles.map(angle => {
       const skew = (Math.random() - 0.5) * skewFactor;
@@ -554,7 +556,7 @@ export default function LinearProgramming() {
     
     // Create vertices with varying radii for more interesting shapes
     const verts = angles.map(angle => {
-      const radiusVariation = 0.7 + Math.random() * 0.6; // 0.7 to 1.3 multiplier
+      const radiusVariation = 0.7 + Math.random() * 0.6;
       const radius = baseRadius * radiusVariation;
       return [
         Math.cos(angle) * radius,
@@ -562,8 +564,8 @@ export default function LinearProgramming() {
       ];
     });
 
-    // Add some overall skew/shear to the entire shape
-    const shearX = (Math.random() - 0.5) * 0.3; // -0.15 to 0.15
+    // Add some skew to the entire shape
+    const shearX = (Math.random() - 0.5) * 0.3;
     const shearY = (Math.random() - 0.5) * 0.3;
     const skewedVerts = verts.map(([x, y]) => [
       x + shearY * y,
@@ -582,7 +584,7 @@ export default function LinearProgramming() {
       Math.round(y + dy)
     ]);
 
-    // ---- turn every edge into an inequality  a·x + b·y ≤ c ----
+    // turn every edge into an inequality  a·x + b·y ≤ c
     const [cx, cy] = translatedVerts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0])
                                    .map(s => s / n);
     const cons: number[][] = [];
