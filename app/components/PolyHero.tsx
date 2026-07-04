@@ -337,17 +337,30 @@ export default function PolyHero() {
       for (const mat of planeMats) mat.opacity = planeVis;
       for (const mat of inkMats) mat.opacity = planeVis * 0.45;
 
-      /* wandering flight path + tiny corrections, like riding air currents */
+      /* fly-by: as the dart reaches the hero solid it breaks off its
+         wander and rounds the solid like a pylon turn — swinging wide
+         to one side while rising to the solid's waist, then settling
+         back onto its path. Staying at screen-centre height keeps the
+         whole turn in frame. Keyed to the dart's own z so it plays
+         forward on the dive and scrubs backward on scroll-up. */
+      const planeZ = camera.position.z - 2.8;
+      const flyby = THREE.MathUtils.clamp((2.2 - planeZ) / 4.4, 0, 1);
+      const flybyW = Math.sin(flyby * Math.PI); // 0 → 1 → 0 across the pass
+      const orbitX = flybyW * 1.4;
+      const orbitY = flybyW * 0.35;
+
+      /* wandering flight path + tiny corrections, like riding air
+         currents — the wander yields to the fly-by arc mid-pass */
       const swayX =
-        Math.sin(elapsed * 0.55) * 0.75 +
+        (Math.sin(elapsed * 0.55) * 0.75 + pointer.x * 0.25) * (1 - flybyW * 0.85) +
         0.02 * Math.sin(elapsed * 2.9 + 1.7) +
         0.012 * Math.sin(elapsed * 4.3) +
-        pointer.x * 0.25;
+        orbitX;
       const swayY =
         SCENE_LIFT - 0.45 +
-        Math.sin(elapsed * 1.15 + 1) * 0.22 +
-        0.015 * Math.sin(elapsed * 3.4 + 0.6) -
-        pointer.y * 0.15;
+        (Math.sin(elapsed * 1.15 + 1) * 0.22 - pointer.y * 0.15) * (1 - flybyW * 0.6) +
+        0.015 * Math.sin(elapsed * 3.4 + 0.6) +
+        orbitY;
 
       /* a dart doesn't flap — it glides, wings buzzing in the airstream.
          Flutter speed and amplitude rise with dive speed; the wings trim
@@ -362,8 +375,20 @@ export default function PolyHero() {
       leftWing.rotation.z = -(dihedral + flutL);
       rightWing.rotation.z = dihedral + flutR;
 
-      plane.position.x += (swayX - plane.position.x) * 0.03;
-      plane.position.y += (swayY - plane.position.y) * 0.05;
+      /* the run-out: over the last stretch of the dive the dart stops
+         wandering and lines up dead centre, flying straight into the
+         light as the scene fades */
+      const endW = smoothstep(THREE.MathUtils.clamp((pr - 0.55) / 0.3, 0, 1));
+      const planeTargetX = THREE.MathUtils.lerp(swayX, 0, endW);
+      const planeTargetY = THREE.MathUtils.lerp(swayY, SCENE_LIFT, endW);
+
+      /* chase speed rises with dive speed so a hard scroll never leaves
+         the dart trailing off-path; tighter still mid-fly-by and on the
+         final line-up */
+      const chase =
+        0.055 + flybyW * 0.05 + endW * 0.06 + Math.min(diveSpeed * 0.03, 0.05);
+      plane.position.x += (planeTargetX - plane.position.x) * chase;
+      plane.position.y += (planeTargetY - plane.position.y) * (chase + 0.02);
       plane.position.z = camera.position.z - 2.8;
 
       /* heading follows the flight path: the dart yaws and banks INTO its
@@ -377,8 +402,10 @@ export default function PolyHero() {
       const smooth = Math.min(dt * 2, 1);
       smoothVx += (vx - smoothVx) * smooth;
       smoothVy += (vy - smoothVy) * smooth;
-      const yawTarget = THREE.MathUtils.clamp(-smoothVx * 1.5, -0.65, 0.65);
-      const bankTarget = THREE.MathUtils.clamp(-smoothVx * 2.0, -0.7, 0.7);
+      /* the run-out squares the dart up: yaw and bank wash out so it
+         finishes wings-level, nose on the light */
+      const yawTarget = THREE.MathUtils.clamp(-smoothVx * 1.5, -0.65, 0.65) * (1 - endW);
+      const bankTarget = THREE.MathUtils.clamp(-smoothVx * 2.0, -0.7, 0.7) * (1 - endW);
       plane.rotation.y += (yawTarget - plane.rotation.y) * Math.min(dt * 3, 1);
       plane.rotation.z += (bankTarget - plane.rotation.z) * Math.min(dt * 4, 1);
       /* scrolling deeper → the dart noses over into a dive with you;
@@ -389,8 +416,9 @@ export default function PolyHero() {
       plane.rotation.x =
         -0.06 -
         divePitch +
-        THREE.MathUtils.clamp(smoothVy * 0.9, -0.25, 0.25) +
-        Math.sin(elapsed * 1.15 + 1) * 0.03;
+        (THREE.MathUtils.clamp(smoothVy * 0.9, -0.25, 0.25) +
+          Math.sin(elapsed * 1.15 + 1) * 0.03) *
+          (1 - endW);
 
       field.children.forEach((piece, i) => {
         piece.rotation.x += fieldSpin[i];

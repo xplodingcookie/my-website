@@ -98,6 +98,7 @@ export default function Home() {
             description="A data-driven analysis using machine learning to help taxi drivers maximise daily revenue by predicting fare amounts and identifying profitable zones."
             link="/Optimising_Daily_Revenue_Dong_Li.pdf"
             image="/taxi_pic.png"
+            imageFit="contain"
           />
           <Project
             index="03"
