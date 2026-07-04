@@ -115,15 +115,58 @@ export default function PolyHero() {
     let current = createPoly(geometries[idx]);
     holder.add(current);
 
-    /* ── Background solid: the second shell the camera flies through ── */
-    const backdrop = createPoly(new THREE.IcosahedronGeometry(2.4), 0.08);
-    backdrop.position.set(0, SCENE_LIFT, -4.5);
-    scene.add(backdrop);
+    /* ── Origami crane: a companion that joins you when the dive begins,
+       flying ahead of the camera. Hidden at rest (opacity 0). ── */
+    const birdLineMat = () =>
+      new THREE.LineBasicMaterial({ color: 0x17171d, transparent: true, opacity: 0 });
+
+    const bird = new THREE.Group();
+    // body: flat paper diamond (nose, left, tail-base, right)
+    const bodyGeom = new THREE.BufferGeometry();
+    bodyGeom.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(
+        [0, 0, -0.5, -0.2, 0, 0.05, 0, 0.02, 0.38, 0, 0, -0.5, 0, 0.02, 0.38, 0.2, 0, 0.05],
+        3,
+      ),
+    );
+    bird.add(new THREE.LineSegments(new THREE.EdgesGeometry(bodyGeom), birdLineMat()));
+    // neck, beak and tail spike as bare strokes
+    const strokes = new THREE.BufferGeometry();
+    strokes.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(
+        [0, 0, -0.5, 0, 0.22, -0.66, 0, 0.22, -0.66, 0, 0.16, -0.8, 0, 0.02, 0.38, 0, 0.2, 0.56],
+        3,
+      ),
+    );
+    bird.add(new THREE.LineSegments(strokes, birdLineMat()));
+    // wings in their own pivot groups so they can flap
+    const wingGeom = (side: number) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute([0, 0, -0.18, side * 0.72, 0.05, 0.05, 0, 0, 0.34], 3),
+      );
+      return g;
+    };
+    const leftWing = new THREE.Group();
+    leftWing.add(new THREE.LineSegments(new THREE.EdgesGeometry(wingGeom(-1)), birdLineMat()));
+    const rightWing = new THREE.Group();
+    rightWing.add(new THREE.LineSegments(new THREE.EdgesGeometry(wingGeom(1)), birdLineMat()));
+    bird.add(leftWing, rightWing);
+    bird.scale.setScalar(0.68);
+    /* below the camera axis and pitched nose-down, so the camera looks
+       onto its back and the wing surfaces read instead of edge-on lines */
+    bird.position.set(0.4, SCENE_LIFT - 0.45, startZ - 2.8);
+    bird.rotation.set(-0.32, 0.15, 0);
+    scene.add(bird);
+    let flapPhase = 0;
 
     /* ── Field: small solids scattered along the flight path so the space
-       between the two shells stays alive — placed on a golden-angle spiral
-       around the camera axis, never dead-centre in the way ── */
-    const FIELD_COUNT = 12;
+       ahead stays alive — placed on a golden-angle spiral around the
+       camera axis, never dead-centre in the way ── */
+    const FIELD_COUNT = 14;
     const fieldSpin: number[] = [];
     const field = new THREE.Group();
     for (let i = 0; i < FIELD_COUNT; i++) {
@@ -211,13 +254,26 @@ export default function PolyHero() {
       holder.position.y = SCENE_LIFT + Math.sin(elapsed * 0.8) * 0.05;
       camera.position.x += (pointer.x * 0.12 * steer - camera.position.x) * 0.04;
 
-      backdrop.rotation.y -= 0.0012;
-      backdrop.rotation.x += 0.0008;
+      /* the crane fades in as the dive begins and leads the flight */
+      const birdVis = THREE.MathUtils.clamp((pr - 0.04) / 0.08, 0, 1);
+      setPolyOpacity(bird, birdVis);
 
-      /* the outer shell emerges as the camera closes in on it */
-      const shellDist = camera.position.z - backdrop.position.z; // ~10 far → ~0 at crossing
-      const emerge = THREE.MathUtils.clamp(1 - (shellDist - 1.5) / 6, 0, 1);
-      setPolyOpacity(backdrop, 0.08 + emerge * 0.2);
+      const swayX = Math.sin(elapsed * 0.7) * 0.55 + pointer.x * 0.25;
+      const swayY = SCENE_LIFT - 0.45 + Math.sin(elapsed * 1.15 + 1) * 0.22 - pointer.y * 0.15;
+      bird.position.x += (swayX - bird.position.x) * 0.03;
+      bird.position.y += (swayY - bird.position.y) * 0.03;
+      bird.position.z = camera.position.z - 2.8;
+
+      /* bank and yaw into lateral drift; flap harder while the camera moves */
+      const diveSpeed = Math.abs(targetZ - camera.position.z);
+      bird.rotation.z += ((swayX - bird.position.x) * 1.6 - bird.rotation.z) * 0.06;
+      bird.rotation.y += (0.15 - (swayX - bird.position.x) * 0.9 - bird.rotation.y) * 0.05;
+      bird.rotation.x = -0.32 + Math.sin(elapsed * 1.15 + 1) * 0.06;
+      flapPhase += dt * (5 + Math.min(diveSpeed * 5, 12));
+      /* flap around a raised dihedral so the wings never sit edge-on */
+      const flap = 0.22 + Math.sin(flapPhase) * (0.5 + Math.min(diveSpeed * 0.4, 0.35));
+      leftWing.rotation.z = flap;
+      rightWing.rotation.z = -flap;
 
       field.children.forEach((piece, i) => {
         piece.rotation.x += fieldSpin[i];
