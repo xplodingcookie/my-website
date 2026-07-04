@@ -114,11 +114,10 @@ export default function PolyHero() {
     let current = createPoly(geometries[idx]);
     holder.add(current);
 
-    /* ── Origami crane companion: a solid folded-paper tsuru built from
-       flat-shaded triangles with faint ink fold-lines, animated by rigid
-       pivots (wings, outer wing panels, neck, tail). Hidden at rest; it
-       joins the flight when the dive begins. ── */
-    const birdMats: THREE.Material[] = [];
+    /* ── Paper-plane companion: a classic dart folded from pearlescent
+       paper — pinched keel below, long narrow wings in layered fold
+       panels. Hidden at rest; it fades in as the dive begins. ── */
+    const planeMats: THREE.Material[] = [];
     const inkMats: THREE.Material[] = [];
 
     /* the site's gradient as paint: indigo → violet → sky */
@@ -134,7 +133,7 @@ export default function PolyHero() {
     };
 
     /* pearlescent origami paper: per-vertex gradient + clearcoat glints +
-       thin-film iridescence, so the hue shifts as the crane banks */
+       thin-film iridescence, so the hue shifts as the dart banks */
     const paper = (
       tris: number[],
       colorAt: (x: number, y: number, z: number) => THREE.Color,
@@ -166,7 +165,7 @@ export default function PolyHero() {
         transparent: true,
         opacity: 0,
       });
-      birdMats.push(mat);
+      planeMats.push(mat);
       const mesh = new THREE.Mesh(g, mat);
       const ink = new THREE.LineBasicMaterial({
         color: 0x17171d,
@@ -178,94 +177,54 @@ export default function PolyHero() {
       return mesh;
     };
 
-    const bird = new THREE.Group();
-
-    /* body: faceted paper keel — ridge, side chines, bottom point */
-    const F = [0, 0.1, -0.36]; // front of ridge (neck base)
-    const B = [0, 0.1, 0.34]; // rear of ridge (tail base)
-    const K = [0, -0.2, -0.02]; // keel
-    const L = [-0.16, 0.04, -0.03]; // left chine
-    const R = [0.16, 0.04, -0.03]; // right chine
+    const plane = new THREE.Group();
     const pearlWhite = new THREE.Color(0xffffff);
     const lavender = new THREE.Color(0xc4b5fd);
-    bird.add(
+
+    /* keel: the pinched body fold under the wings — a shallow tent of two
+       faces meeting at the centre crease, deepest at the rear */
+    plane.add(
       paper(
         [
-          ...F, ...L, ...K, ...F, ...K, ...R, // hull front
-          ...B, ...K, ...L, ...B, ...R, ...K, // hull rear
-          ...F, ...B, ...L, ...F, ...R, ...B, // deck
+          0, 0.02, -0.72, -0.02, -0.18, 0.42, 0, 0.04, 0.48,
+          0, 0.02, -0.72, 0, 0.04, 0.48, 0.02, -0.18, 0.42,
         ],
-        /* pearl body shading to lavender at the keel */
-        (_x, y) => pearlWhite.clone().lerp(lavender, THREE.MathUtils.clamp((0.1 - y) / 0.3, 0, 1)),
+        /* pearl at the crease shading to lavender at the keel's depth */
+        (_x, y) => pearlWhite.clone().lerp(lavender, THREE.MathUtils.clamp((0.02 - y) / 0.22, 0, 1)),
       ),
     );
 
-    /* neck: bold folded spike at ~45°, kinked head + downturned beak */
-    const neck = new THREE.Group();
-    neck.position.set(0, 0.08, -0.36);
-    neck.add(
-      paper(
-        [
-          0, -0.06, 0.03, -0.05, 0.01, -0.03, 0, 0.34, -0.34,
-          0, -0.06, 0.03, 0, 0.34, -0.34, 0.05, 0.01, -0.03,
-          0, 0.34, -0.34, 0, 0.4, -0.41, 0, 0.24, -0.5,
-        ],
-        /* white at the body, running the gradient out to the beak */
-        (_x, y) => pearlWhite.clone().lerp(gradAt(0.55), THREE.MathUtils.clamp((y + 0.06) / 0.46, 0, 1)),
-      ),
-    );
-    bird.add(neck);
-
-    /* tail: folded spike rising backward, mirroring the neck */
-    const tail = new THREE.Group();
-    tail.position.set(0, 0.08, 0.34);
-    tail.add(
-      paper(
-        [
-          0, -0.06, -0.03, 0, 0.4, 0.34, -0.05, 0.01, 0.03,
-          0, -0.06, -0.03, 0.05, 0.01, 0.03, 0, 0.4, 0.34,
-        ],
-        /* white at the body, violet-to-sky at the tail tip */
-        (_x, y) => pearlWhite.clone().lerp(gradAt(0.8), THREE.MathUtils.clamp((y + 0.06) / 0.46, 0, 1)),
-      ),
-    );
-    bird.add(tail);
-
-    /* wings: broad paper triangles (root chord spans the body) split at a
-       fold crease so the outer panel can lag the stroke */
+    /* wings: long and narrow like a real dart, each in two panels — the
+       inner strip dips toward the body and the main panel rises past the
+       fold line, so the layered folds catch the light separately */
     const makeWing = (dir: 1 | -1) => {
-      const inner = new THREE.Group();
-      inner.position.set(0, 0.1, 0);
-      inner.add(
+      const wing = new THREE.Group();
+      wing.position.set(0, 0.02, 0);
+      wing.add(
         paper(
           [
-            0, 0, -0.28, dir * 0.42, 0.06, -0.16, dir * 0.42, 0.05, 0.24,
-            0, 0, -0.28, dir * 0.42, 0.05, 0.24, 0, 0, 0.3,
+            /* inner fold strip along the body */
+            0, 0, -0.72, dir * 0.11, -0.012, 0.46, 0, 0.015, 0.48,
+            /* main wing panel, rising from the fold line to the tip */
+            0, 0, -0.72, dir * 0.44, 0.055, 0.4, dir * 0.11, -0.012, 0.46,
           ],
-          /* gradient flows root → crease: indigo into violet */
-          (x) => gradAt(Math.abs(x) / 0.92),
+          /* span gradient: near-white at the body, indigo → sky at the tip */
+          (x) =>
+            Math.abs(x) < 0.115
+              ? pearlWhite.clone().lerp(gradAt(0.1), Math.abs(x) / 0.115)
+              : gradAt(Math.abs(x) / 0.44),
         ),
       );
-      const outer = new THREE.Group();
-      outer.position.set(dir * 0.42, 0.055, 0.04);
-      outer.add(
-        paper(
-          [dir * 0, 0.005, -0.2, dir * 0.5, 0.03, -0.02, dir * 0, -0.005, 0.2],
-          /* continues seamlessly: crease → tip, violet into sky */
-          (x) => gradAt((Math.abs(x) + 0.42) / 0.92),
-        ),
-      );
-      inner.add(outer);
-      return { inner, outer };
+      return wing;
     };
-    const { inner: leftWing, outer: leftOuter } = makeWing(-1);
-    const { inner: rightWing, outer: rightOuter } = makeWing(1);
-    bird.add(leftWing, rightWing);
+    const leftWing = makeWing(-1);
+    const rightWing = makeWing(1);
+    plane.add(leftWing, rightWing);
 
-    bird.scale.setScalar(0.8);
-    bird.position.set(0.4, SCENE_LIFT - 0.45, startZ - 2.8);
-    bird.rotation.set(-0.08, 0, 0);
-    scene.add(bird);
+    plane.scale.setScalar(0.9);
+    plane.position.set(0.4, SCENE_LIFT - 0.45, startZ - 2.8);
+    plane.rotation.set(-0.06, 0, 0);
+    scene.add(plane);
 
     /* mostly-ambient lighting: bright paper everywhere, gentle facet
        shading — a hard key light turns the undersides into grey shards.
@@ -275,10 +234,9 @@ export default function PolyHero() {
     sun.position.set(-2, 3, 2);
     scene.add(sun);
 
-    let flapPhase = 0;
-    let glide = 0;
-    let prevBirdX = bird.position.x;
-    let prevBirdY = bird.position.y;
+    let flutterPhase = 0;
+    let prevPlaneX = plane.position.x;
+    let prevPlaneY = plane.position.y;
     let smoothVx = 0;
     let smoothVy = 0;
     let divePitch = 0;
@@ -357,21 +315,11 @@ export default function PolyHero() {
       const dt = clock.getDelta();
       const elapsed = clock.elapsedTime;
 
+      current.rotation.x += 0.01;
+      current.rotation.y += 0.013;
+
       /* camera dive: scroll progress → dolly through both solids, damped */
       const pr = progress.get();
-
-      /* ── morph handoff: as the dive begins the hero solid spins up and
-         folds inward while the crane — wings, neck and tail creased flat —
-         unfolds from its heart, takes size, and flies to its station.
-         Scrolling back up plays the whole transformation in reverse. ── */
-      const collapse = smoothstep(THREE.MathUtils.clamp((pr - 0.04) / 0.12, 0, 1));
-      const unfold = smoothstep(THREE.MathUtils.clamp((pr - 0.06) / 0.14, 0, 1));
-      const fold = 1 - unfold;
-      holder.scale.setScalar(Math.max(1 - collapse, 0.0001));
-      /* point sprites keep world-size at zero scale — hide the husk fully */
-      holder.visible = collapse < 0.995;
-      current.rotation.x += 0.01 * (1 + collapse * 6);
-      current.rotation.y += 0.013 * (1 + collapse * 6);
       const targetZ = startZ + (END_Z - startZ) * pr;
       const targetY = SCENE_LIFT * smoothstep(Math.min(pr / 0.35, 1));
       camera.position.z += (targetZ - camera.position.z) * 0.09;
@@ -384,10 +332,10 @@ export default function PolyHero() {
       holder.position.y = SCENE_LIFT + Math.sin(elapsed * 0.8) * 0.05;
       camera.position.x += (pointer.x * 0.12 * steer - camera.position.x) * 0.04;
 
-      /* the crane fades in as the dive begins and leads the flight */
-      const birdVis = THREE.MathUtils.clamp((pr - 0.04) / 0.08, 0, 1);
-      for (const mat of birdMats) mat.opacity = birdVis;
-      for (const mat of inkMats) mat.opacity = birdVis * 0.45;
+      /* the dart fades in as the dive begins and leads the flight */
+      const planeVis = THREE.MathUtils.clamp((pr - 0.04) / 0.08, 0, 1);
+      for (const mat of planeMats) mat.opacity = planeVis;
+      for (const mat of inkMats) mat.opacity = planeVis * 0.45;
 
       /* wandering flight path + tiny corrections, like riding air currents */
       const swayX =
@@ -401,78 +349,48 @@ export default function PolyHero() {
         0.015 * Math.sin(elapsed * 3.4 + 0.6) -
         pointer.y * 0.15;
 
-      /* fast camera → stretch into a glide; slow camera → easy wingbeats.
-         Brief correction flaps punctuate long glides. */
+      /* a dart doesn't flap — it glides, wings buzzing in the airstream.
+         Flutter speed and amplitude rise with dive speed; the wings trim
+         slightly flatter when moving fast. */
       const diveSpeed = Math.abs(targetZ - camera.position.z);
-      const glideTarget = THREE.MathUtils.clamp(diveSpeed * 2.2 - 0.05, 0, 1);
-      glide += (glideTarget - glide) * Math.min(dt * 2.5, 1);
-      const burst = Math.max(0, Math.sin(elapsed * 0.9) - 0.86) / 0.14;
-      /* no wingbeats until the wings have unfolded */
-      const amp = (THREE.MathUtils.lerp(0.45, 0.09, glide) + burst * glide * 0.28) * unfold;
+      flutterPhase += dt * (7 + Math.min(diveSpeed * 8, 10));
+      const flutterAmp = 0.015 + Math.min(diveSpeed * 0.05, 0.04);
+      const flutL = Math.sin(flutterPhase) * flutterAmp;
+      const flutR = Math.sin(flutterPhase + 0.9) * flutterAmp;
+      /* enough V that the wing surfaces read even from dead astern */
+      const dihedral = 0.2 - Math.min(diveSpeed * 0.04, 0.04);
+      leftWing.rotation.z = -(dihedral + flutL);
+      rightWing.rotation.z = dihedral + flutR;
 
-      /* asymmetric wingbeat: quick downstroke, easing recovery;
-         left and right slightly out of phase and amplitude */
-      flapPhase += dt * THREE.MathUtils.lerp(5.2, 2.4, glide) * (1 - 0.35 * Math.cos(flapPhase));
-      const waveL = Math.sin(flapPhase + 0.09) * (1 + 0.05 * Math.sin(elapsed * 0.53));
-      const waveR = Math.sin(flapPhase) * (1 + 0.05 * Math.sin(elapsed * 0.41 + 2));
-      /* while folded, both wing panels crease steeply upward like a
-         half-finished fold; dihedral eases to flight trim as it opens */
-      const dihedral = 0.1 + glide * 0.08 + fold * 1.2;
-      leftWing.rotation.z = -(dihedral + waveL * amp);
-      rightWing.rotation.z = dihedral + waveR * amp;
+      plane.position.x += (swayX - plane.position.x) * 0.03;
+      plane.position.y += (swayY - plane.position.y) * 0.05;
+      plane.position.z = camera.position.z - 2.8;
 
-      /* outer panels chase the stroke — anticipation and follow-through —
-         and the wings sweep back slightly in a glide */
-      const chase = Math.min(dt * 8, 1);
-      leftOuter.rotation.z +=
-        (-(waveL * amp * 0.7) - glide * 0.12 - fold * 0.9 - leftOuter.rotation.z) * chase;
-      rightOuter.rotation.z +=
-        (waveR * amp * 0.7 + glide * 0.12 + fold * 0.9 - rightOuter.rotation.z) * chase;
-      leftWing.rotation.y += (glide * 0.18 - leftWing.rotation.y) * 0.05;
-      rightWing.rotation.y += (-glide * 0.18 - rightWing.rotation.y) * 0.05;
-
-      /* the body rides each stroke; neck and tail trail it with inertia */
-      const stroke = ((waveL + waveR) / 2) * amp;
-
-      /* folded: pinned to the solid's heart, small. Unfolding: grows and
-         crosses to its flight station ahead of the camera. */
-      const tx = THREE.MathUtils.lerp(0, swayX, unfold);
-      const ty = THREE.MathUtils.lerp(holder.position.y, swayY - stroke * 0.05, unfold);
-      const tz = THREE.MathUtils.lerp(0, camera.position.z - 2.8, unfold);
-      bird.position.x += (tx - bird.position.x) * (0.03 + fold * 0.3);
-      bird.position.y += (ty - bird.position.y) * (0.05 + fold * 0.3);
-      bird.position.z = tz;
-      bird.scale.setScalar(THREE.MathUtils.lerp(0.24, 0.8, unfold));
-      /* heading follows the flight path: the crane yaws and banks INTO its
+      /* heading follows the flight path: the dart yaws and banks INTO its
          weave, swinging through centre to face left and right in turn.
          The raw velocity is low-passed first — micro air-current wiggles
          stay in the position but must not rock the attitude. */
-      const vx = dt > 0 ? (bird.position.x - prevBirdX) / dt : 0;
-      const vy = dt > 0 ? (bird.position.y - prevBirdY) / dt : 0;
-      prevBirdX = bird.position.x;
-      prevBirdY = bird.position.y;
+      const vx = dt > 0 ? (plane.position.x - prevPlaneX) / dt : 0;
+      const vy = dt > 0 ? (plane.position.y - prevPlaneY) / dt : 0;
+      prevPlaneX = plane.position.x;
+      prevPlaneY = plane.position.y;
       const smooth = Math.min(dt * 2, 1);
       smoothVx += (vx - smoothVx) * smooth;
       smoothVy += (vy - smoothVy) * smooth;
-      const yawTarget = THREE.MathUtils.clamp(-smoothVx * 1.5, -0.65, 0.65) * unfold;
-      const bankTarget = THREE.MathUtils.clamp(-smoothVx * 2.0, -0.7, 0.7) * unfold;
-      bird.rotation.y += (yawTarget - bird.rotation.y) * Math.min(dt * 3, 1);
-      bird.rotation.z += (bankTarget - bird.rotation.z) * Math.min(dt * 4, 1);
-      /* scrolling deeper → the crane noses over into a dive with you;
+      const yawTarget = THREE.MathUtils.clamp(-smoothVx * 1.5, -0.65, 0.65);
+      const bankTarget = THREE.MathUtils.clamp(-smoothVx * 2.0, -0.7, 0.7);
+      plane.rotation.y += (yawTarget - plane.rotation.y) * Math.min(dt * 3, 1);
+      plane.rotation.z += (bankTarget - plane.rotation.z) * Math.min(dt * 4, 1);
+      /* scrolling deeper → the dart noses over into a dive with you;
          it eases back level once the camera settles */
       const diveForward = camera.position.z - targetZ; // >0 while descending
-      divePitch += (THREE.MathUtils.clamp(diveForward * 0.55, -0.12, 0.5) * unfold - divePitch) *
+      divePitch += (THREE.MathUtils.clamp(diveForward * 0.55, -0.12, 0.5) - divePitch) *
         Math.min(dt * 3, 1);
-      bird.rotation.x =
-        -0.1 -
+      plane.rotation.x =
+        -0.06 -
         divePitch +
         THREE.MathUtils.clamp(smoothVy * 0.9, -0.25, 0.25) +
-        stroke * 0.08 +
-        Math.sin(elapsed * 1.15 + 1) * 0.04;
-      const lag = Math.min(dt * 5, 1);
-      /* neck and tail crease flat against the body while folded */
-      neck.rotation.x += (stroke * 0.12 + fold * 1.0 - neck.rotation.x) * lag;
-      tail.rotation.x += (-stroke * 0.18 - fold * 1.0 - tail.rotation.x) * lag;
+        Math.sin(elapsed * 1.15 + 1) * 0.03;
 
       field.children.forEach((piece, i) => {
         piece.rotation.x += fieldSpin[i];
