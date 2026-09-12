@@ -3,9 +3,9 @@ import fs from "node:fs";
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE
     ? `${process.env.PLAYWRIGHT_MODULE}/index.mjs`
-    : "playwright"
+    : "playwright-core"
 );
-const base = process.env.REVIEW_URL || "http://127.0.0.1:3002";
+const base = process.env.REVIEW_URL || "http://127.0.0.1:3001";
 const out = process.env.REVIEW_OUTPUT || "/tmp/hero-restored";
 fs.mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({
@@ -132,9 +132,41 @@ try {
     await page.locator("[data-hero-copy]").getAttribute("inert"),
     null,
   );
+  // A landscape viewport scrolls normally: actions stay visible and usable
+  // when brought above the fold, including after rotating from portrait.
+  const landscape = await browser.newPage({ isMobile: true, hasTouch: true });
+  landscape.on("pageerror", e => errors.push(e.message));
+  for (const motion of ["reduce", "no-preference"]) {
+    await landscape.emulateMedia({ reducedMotion: motion });
+    for (const [width, height] of [[844, 390], [667, 375]]) {
+      await landscape.setViewportSize({ width: 390, height: 844 });
+      await landscape.goto(base);
+      await landscape.locator(".hero-scene[data-ready=true]").waitFor();
+      await landscape.setViewportSize({ width, height });
+      await landscape.waitForFunction(() => {
+        const copy = document.querySelector("[data-hero-copy]");
+        return !copy.inert && getComputedStyle(copy).opacity === "1";
+      });
+      for (const name of ["Explore the maths", "See my work"]) {
+        const link = landscape.getByRole("link", { name, exact: false });
+        await link.scrollIntoViewIfNeeded();
+        const rect = await link.boundingBox();
+        assert(rect.y >= 80 && rect.y + rect.height <= height);
+        assert.equal(await link.evaluate(e => !!e.closest("[inert]")), false);
+      }
+      if (motion === "no-preference") {
+        await landscape.getByRole("button", { name: "Pause hero motion" }).tap();
+        assert.equal(await landscape.locator(".hero-scene canvas").getAttribute("data-motion"), "paused");
+      }
+      await landscape.screenshot({ path: `${out}/landscape-${motion}-${width}.png` });
+      await landscape.getByRole("link", { name: "See my work" }).tap();
+      assert.equal(await landscape.evaluate(() => document.activeElement.id), "experience");
+    }
+  }
+  await landscape.close();
   assert.deepEqual(errors, []);
   console.log(
-    "Restored hero: 14 viewport/motion combinations; live WebGL; pause/resume; invisible-focus prevention; focused-link visibility; offscreen shutdown; mid-flight refresh; reactive reduced motion passed.",
+    "Hero: 14 viewport/motion combinations plus four landscape/rotation cases; live WebGL; pause/resume; accessible actions; offscreen shutdown; mid-flight refresh; reactive reduced motion passed.",
   );
 } finally {
   await browser.close();

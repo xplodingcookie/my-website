@@ -3,12 +3,14 @@ import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   motion,
+  useMotionValue,
   useMotionValueEvent,
   useScroll,
   useTransform,
 } from "framer-motion";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import useReducedMotion from "./useReducedMotion";
+import useMediaQuery from "./useMediaQuery";
 import HeroFallback from "./HeroFallback";
 import styles from "./PolyHero.module.css";
 
@@ -19,6 +21,9 @@ const HeroScene = dynamic(() => import("./HeroScene"), {
 export default function PolyHero() {
   const trackRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
+  const shortViewport = useMediaQuery("(max-height: 559px)");
+  const staticLayout = reduced || shortViewport;
+  const restingProgress = useMotionValue(0);
   const [paused, setPaused] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -34,12 +39,12 @@ export default function PolyHero() {
   useMotionValueEvent(scrollYProgress, "change", (value) =>
     setUnavailable(value >= 0.13),
   );
-  const hidden = unavailable && !focused && !reduced;
+  const hidden = unavailable && !focused && !staticLayout;
   return (
     <section
       id="top"
       ref={trackRef}
-      className={`${styles.track} ${reduced ? styles.trackStatic : ""}`}
+      className={`${styles.track} ${staticLayout ? styles.trackStatic : ""}`}
       aria-label="Introduction"
     >
       <noscript>
@@ -48,16 +53,16 @@ export default function PolyHero() {
       <div className={styles.stage}>
         <motion.div
           className={styles.halo}
-          style={{ opacity: reduced ? 1 : haloOpacity }}
+          style={{ opacity: staticLayout ? 1 : haloOpacity }}
           aria-hidden="true"
         />
         <motion.div
           className={styles.scene}
-          style={{ opacity: reduced ? 1 : canvasOpacity }}
+          style={{ opacity: staticLayout ? 1 : canvasOpacity }}
           aria-hidden="true"
         >
           <HeroScene
-            progress={scrollYProgress}
+            progress={shortViewport ? restingProgress : scrollYProgress}
             paused={paused}
             reduced={reduced}
           />
@@ -65,7 +70,7 @@ export default function PolyHero() {
         <div className={styles.inner}>
           <motion.div
             className={styles.topline}
-            style={{ opacity: reduced ? 1 : haloOpacity }}
+            style={{ opacity: staticLayout ? 1 : haloOpacity }}
           >
             <span>Mathematics × Computer Science</span>
             <span>Melbourne, Australia</span>
@@ -81,7 +86,7 @@ export default function PolyHero() {
                 setFocused(false);
             }}
             style={
-              reduced || focused
+              staticLayout || focused
                 ? { opacity: 1, scale: 1 }
                 : { opacity: textOpacity, scale: textScale }
             }
@@ -108,7 +113,7 @@ export default function PolyHero() {
             <span>Software engineer</span>
             <motion.span
               className={styles.scrollCue}
-              style={{ opacity: reduced ? 0 : cueOpacity }}
+              style={{ opacity: staticLayout ? 0 : cueOpacity }}
             >
               Scroll to take flight <ArrowDown size={15} aria-hidden="true" />
             </motion.span>

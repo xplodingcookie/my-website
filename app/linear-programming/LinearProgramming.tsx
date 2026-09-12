@@ -209,7 +209,13 @@ export default function LinearProgramming() {
       setObjDraft(problem.objective.map(String));
   }
   const objErrors = objDraft.map(numberError);
+  const objectiveDescription = [
+    objErrors.some(Boolean) ? "objective-error" : "",
+    dirty ? "objective-draft-hint" : "",
+  ].filter(Boolean).join(" ") || undefined;
   function changeObjective(slot: number, raw: string) {
+    // Applying a heading edit replaces the draft; preserve pending Experiment work.
+    if (dirty) return;
     const nextDraft = objDraft.map((s, i) => (i === slot ? raw : s));
     setObjDraft(nextDraft);
     if (nextDraft.every((s) => !numberError(s)))
@@ -266,28 +272,31 @@ export default function LinearProgramming() {
               <input
                 className={styles.objectiveInput}
                 value={objDraft[0]}
+                readOnly={dirty}
                 onChange={(e) => changeObjective(0, e.target.value)}
                 aria-label="Objective coefficient of x₁"
                 aria-invalid={objErrors[0] ? true : undefined}
-                aria-describedby={
-                  objErrors[0] || objErrors[1] ? "objective-error" : undefined
-                }
+                aria-describedby={objectiveDescription}
                 inputMode="decimal"
               />
               <span aria-hidden="true">x₁ +</span>
               <input
                 className={styles.objectiveInput}
                 value={objDraft[1]}
+                readOnly={dirty}
                 onChange={(e) => changeObjective(1, e.target.value)}
                 aria-label="Objective coefficient of x₂"
                 aria-invalid={objErrors[1] ? true : undefined}
-                aria-describedby={
-                  objErrors[0] || objErrors[1] ? "objective-error" : undefined
-                }
+                aria-describedby={objectiveDescription}
                 inputMode="decimal"
               />
               <span aria-hidden="true">x₂</span>
             </div>
+            {dirty && (
+              <p id="objective-draft-hint" className={styles.editorHelp}>
+                Apply your Experiment changes before editing the objective here.
+              </p>
+            )}
             {(objErrors[0] || objErrors[1]) && (
               <p id="objective-error" className={styles.fieldError} role="status">
                 {objErrors[0] ?? objErrors[1]}

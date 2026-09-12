@@ -221,7 +221,8 @@
     top: 12px;
   }
 }
-@media (prefers-reduced-motion: reduce) {
+/* Short screens scroll the complete introduction in normal document flow. */
+@media (prefers-reduced-motion: reduce), (max-height: 559px) {
   .track {
     height: auto;
   }

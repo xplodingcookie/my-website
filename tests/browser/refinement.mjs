@@ -3,7 +3,7 @@ import fs from "node:fs";
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE
     ? `${process.env.PLAYWRIGHT_MODULE}/index.mjs`
-    : "playwright"
+    : "playwright-core"
 );
 const base = process.env.REVIEW_URL || "http://127.0.0.1:3001";
 const out = process.env.REVIEW_OUTPUT || "/tmp/portfolio-final";
@@ -195,12 +195,53 @@ try {
   await page.getByLabel("Objective coefficient of x₁").fill("3");
   assert.equal(await page.locator("#objective-error").count(), 0);
   assert.match(await state(), /\(0, 0\)/);
+  // Pending Experiment work cannot be replaced through the heading editor.
+  for (const raw of ["2", "", "-"]) {
+    await page.locator("#constraint-0-2").fill(raw);
+    for (const variable of ["x₁", "x₂"]) {
+      const heading = page.getByLabel(`Objective coefficient of ${variable}`);
+      assert.equal(await heading.evaluate(e => e.readOnly), true);
+      await heading.focus();
+      await page.keyboard.press("5");
+      assert.equal(await heading.inputValue(), variable === "x₁" ? "3" : "2");
+    }
+    assert.equal(await page.locator("#constraint-0-2").inputValue(), raw);
+    assert(await page.locator("#objective-draft-hint").isVisible());
+    assert(await button("Solve").isDisabled());
+  }
+  await page.locator("#constraint-0-2").fill("2");
+  await button("Apply problem").click();
+  await page.getByLabel("Objective coefficient of x₁").fill("5");
+  await button("Solve").click();
+  assert.match(await state(), /\(2, 4\)/);
+  assert.match(await state(), /18/);
+  assert.equal(await page.locator("#constraint-0-2").inputValue(), "2");
+  await page.getByRole("button", { name: /The preview example/ }).click();
   // Clearing every constraint leaves only nonnegativity: unbounded.
   await button("Clear all constraints").click();
   await button("Apply problem").click();
   await button("Solve").click();
   assert.match(await state(), /Unbounded objective/);
   assert(await button("Clear all constraints").isDisabled());
+  // Equivalent tiny coefficients still plot the off-origin square and optimum.
+  const smallRows = [
+    ["1e-6", "0", "2e-5"], ["-1e-6", "0", "-1e-5"],
+    ["0", "1e-6", "2e-5"], ["0", "-1e-6", "-1e-5"],
+  ];
+  for (const [i, row] of smallRows.entries()) {
+    await button("Add constraint").click();
+    for (const [j, raw] of row.entries())
+      await page.locator(`#constraint-${i}-${j}`).fill(raw);
+  }
+  await page.getByLabel("c₁", { exact: true }).fill("1");
+  await page.getByLabel("c₂", { exact: true }).fill("1");
+  await button("Apply problem").click();
+  await button("Solve").click();
+  assert.match(await state(), /\(20, 20\)/);
+  assert.match(await state(), /40/);
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator(".feasible-graph polygon").count(), 1);
+  await assertMarkersOnVertices();
   await page.getByRole("button", { name: /The preview example/ }).click();
   assert.match(await state(), /\(0, 0\)/);
   console.log(

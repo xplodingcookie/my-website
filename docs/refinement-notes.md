@@ -38,13 +38,37 @@ Run the production site separately from the dev server, since both write `.next`
 
 ```sh
 npm run start -- --port 3001
-PLAYWRIGHT_MODULE=/absolute/path/to/playwright \
-CHROMIUM_PATH=/absolute/path/to/chromium \
+# Install Chromium once; both scripts use the declared playwright-core package.
+npx playwright-core install chromium
 node tests/browser/refinement.mjs
+node tests/browser/hero.mjs
 ```
+
+Both scripts default to port 3001. If using an existing Chromium installation,
+set `CHROMIUM_PATH=/absolute/path/to/chromium` instead of installing a browser.
+`PLAYWRIGHT_MODULE` remains an optional override for a custom Playwright installation.
 
 The browser script defaults to `http://127.0.0.1:3001` and writes screenshots to `/tmp/portfolio-final`. Override these with `REVIEW_URL` and `REVIEW_OUTPUT`. It tests 1280×600, 1280×720, 1440×900, 1920×1080, 320×568, 390×844, and 430×932; mouse/touch/keyboard controls; slow pause/reset; invalid inputs; example outcomes; anchor refreshes; reduced motion; offscreen shutdown; and no-JavaScript content.
 
 The earlier SVG-hero JavaScript measurements no longer apply: the original WebGL experience has been restored. `tests/browser/hero.mjs` additionally covers live rendering, all seven viewports with and without reduced motion, pause/resume, inert faded links, focused-link visibility, offscreen shutdown, and refresh during flight.
 
 Browser checks use Chromium and emulated mobile touch. They do not substitute for testing on physical iOS/Android devices or with a screen reader.
+
+## Release review fixes
+
+- Next.js and its lint configuration use patched 15.5.25, and React/React DOM
+  stay on patched 19.2.8. Compatible transitive security updates are locked.
+  Next.js 15 still pins PostCSS 8.4.31; a scoped override shares the project's
+  patched PostCSS 8.5.23+ until the framework removes that vulnerable pin.
+- Pending Experiment drafts make the heading coefficients read-only until the
+  changes are applied. A nearby explanation keeps the state clear; valid heading
+  edits still apply immediately when no draft is pending.
+- At viewport heights below 560px the hero scrolls in normal document flow, with
+  no scroll fade or camera dive. The links and motion control remain reachable.
+  Rotation updates this layout without requiring a page reload.
+- Geometry normalises nonzero constraint rows before intersection and clipping;
+  equivalent positive scalings preserve the plot. Zero rows are explicitly
+  redundant or infeasible.
+- Regression checks cover pending valid/invalid drafts, the resulting optimum,
+  small and mixed row scalings, zero rows, and 844×390 / 667×375 landscape
+  interactions with and without reduced motion.

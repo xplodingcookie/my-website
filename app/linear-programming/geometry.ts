@@ -6,13 +6,21 @@ export type Geometry = {
   boundaries: [Point, Point][];
 };
 
+// Normalised rows measure signed distances, so scaling an inequality does not
+// change the geometric tolerances. Zero rows are handled separately below.
+const EPS = 1e-7;
+function normalise([a, b, c]: Constraint): Constraint {
+  const scale = Math.hypot(a, b);
+  return [a / scale, b / scale, c / scale];
+}
+
 // Clip the line a·x + b·y = c to the square viewing window [0, extent]², so
 // every constraint is visible as a boundary even where it is not binding.
 function clipBoundary(
   [a, b, c]: Constraint,
   extent: number,
 ): [Point, Point] | null {
-  const eps = 1e-7;
+  const eps = EPS;
   const candidates: Point[] = [];
   if (Math.abs(b) > eps)
     candidates.push([0, c / b], [extent, (c - a * extent) / b]);
@@ -42,8 +50,13 @@ function clipBoundary(
 // Geometry depends only on the problem. Clip an explicit viewing window so an
 // unbounded region is shown as a clipped region, not a falsely closed hull.
 export function calculateGeometry(problem: Problem): Geometry {
+  if (problem.constraints.some(([a, b, c]) => a === 0 && b === 0 && c < 0))
+    return { polygon: [], extent: 5, boundaries: [] };
+  const rows = problem.constraints
+    .filter(([a, b]) => a !== 0 || b !== 0)
+    .map(normalise);
   const constraints: Constraint[] = [
-    ...problem.constraints,
+    ...rows,
     [-1, 0, 0],
     [0, -1, 0],
   ];
@@ -59,7 +72,7 @@ export function calculateGeometry(problem: Problem): Geometry {
       if (
         Number.isFinite(x) &&
         Number.isFinite(y) &&
-        constraints.every(([u, v, w]) => u * x + v * y <= w + 1e-7)
+        constraints.every(([u, v, w]) => u * x + v * y <= w + EPS)
       )
         vertices.push([x, y]);
     }
@@ -75,10 +88,13 @@ export function calculateGeometry(problem: Problem): Geometry {
     for (let i = 0; i < polygon.length; i++) {
       const start = polygon[i],
         end = polygon[(i + 1) % polygon.length];
-      const s = a * start[0] + b * start[1] - c,
-        e = a * end[0] + b * end[1] - c;
-      if (s <= 1e-8) output.push(start);
-      if (s <= 1e-8 !== e <= 1e-8) {
+      const startDistance = a * start[0] + b * start[1] - c,
+        endDistance = a * end[0] + b * end[1] - c;
+      // Snap near-boundary values to zero before classifying and intersecting.
+      const s = Math.abs(startDistance) <= EPS ? 0 : startDistance,
+        e = Math.abs(endDistance) <= EPS ? 0 : endDistance;
+      if (s <= 0) output.push(start);
+      if ((s <= 0) !== (e <= 0)) {
         const t = s / (s - e);
         output.push([
           start[0] + t * (end[0] - start[0]),
@@ -88,7 +104,7 @@ export function calculateGeometry(problem: Problem): Geometry {
     }
     polygon = output;
   }
-  const boundaries = problem.constraints
+  const boundaries = rows
     .map((constraint) => clipBoundary(constraint, extent))
     .filter((segment): segment is [Point, Point] => segment !== null);
   return { polygon, extent, boundaries };

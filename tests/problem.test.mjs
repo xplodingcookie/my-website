@@ -58,6 +58,40 @@ test("simple feasible polygon has exact vertices and correct bounds", () => {
   assert(geometry.polygon.some((p) => p[0] === 4 && p[1] === 2));
   assert(geometry.polygon.every((p) => isFeasible(SIMPLE, p)));
 });
+test("positive row scaling preserves the feasible polygon and plotted boundaries", () => {
+  const problem = {
+    objective: [1, 1],
+    constraints: [[1, 0, 20], [-1, 0, -10], [0, 1, 20], [0, -1, -10]],
+  };
+  const expected = calculateGeometry(problem);
+  for (const scales of [[1e-6, 1e-6, 1e-6, 1e-6], [1e4, 1e-6, 0.5, 2]]) {
+    const scaled = {
+      ...problem,
+      constraints: problem.constraints.map((row, i) => row.map(n => n * scales[i])),
+    };
+    assert(validateDraft(toDraft(scaled)).problem);
+    const actual = calculateGeometry(scaled);
+    assert.equal(actual.polygon.length, 4);
+    assert.equal(actual.boundaries.length, 4);
+    assert(Math.abs(actual.extent - expected.extent) < 1e-7);
+    for (const vertex of expected.polygon)
+      assert(actual.polygon.some(p => Math.hypot(p[0] - vertex[0], p[1] - vertex[1]) < 1e-7));
+    for (const [i, boundary] of expected.boundaries.entries())
+      for (const [j, point] of boundary.entries())
+        assert(Math.hypot(actual.boundaries[i][j][0] - point[0], actual.boundaries[i][j][1] - point[1]) < 1e-7);
+  }
+});
+test("zero-coefficient rows are redundant or impossible without producing NaN geometry", () => {
+  for (const limit of [0, 1e-6, 1e6])
+    assert.deepEqual(
+      calculateGeometry({ ...SIMPLE, constraints: [...SIMPLE.constraints, [0, 0, limit]] }),
+      calculateGeometry(SIMPLE),
+    );
+  assert.deepEqual(
+    calculateGeometry({ ...SIMPLE, constraints: [[0, 0, -1e-6]] }),
+    { polygon: [], extent: 5, boundaries: [] },
+  );
+});
 const example = (name) => EXAMPLES.find((item) => item.name === name).problem;
 
 test("infeasible regions are empty, unbounded regions reach the viewing boundary", () => {
