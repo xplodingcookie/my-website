@@ -1,402 +1,97 @@
-.container {
-  min-height: 100vh;
+.container { width: min(1200px, calc(100% - 80px)); margin: auto; padding: 36px 0 80px; }
+.backLink, .textLink { display: inline-block; font-size: 13px; color: var(--accent-deep); padding-block: 12px; text-underline-offset: 5px; }
+.backLink:hover, .textLink:hover { text-decoration: underline; }
+.header { margin: 20px 0 38px; }
+.title { font-family: var(--font-myfont), sans-serif; font-size: clamp(38px, 5vw, 64px); line-height: 1.12; letter-spacing: -.045em; margin-block: 15px 20px; }
+.intro { max-width: 68ch; color: var(--ink-soft); font-size: 15px; line-height: 1.8; }
+.walkthrough { border: 1px solid var(--hairline); border-radius: 12px; background: #ffffff45; overflow: hidden; }
+.problemHeading { padding: 25px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--hairline); }
+.problemHeading h2 { font-size: 23px; letter-spacing: -.025em; margin-top: 10px; scroll-margin-top: 120px; overflow-wrap: anywhere; }
+.objectiveRow, .staticFormula { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; font-size: 22px; font-weight: 600; letter-spacing: -.025em; }
+/* The coefficients read as part of the formula: no box, just an underscore. */
+.objectiveInput { width: 3ch; font: inherit; text-align: center; min-height: 40px; padding: 0 2px 2px; border: 0; border-bottom: 1px solid #8e7ba780; border-radius: 0; background: transparent; color: var(--accent-deep); }
+.objectiveInput:focus-visible { outline: none; }
+.objectiveInput:focus { border-bottom: 2px solid var(--accent-deep); background: #ffffff70; }
+.objectiveInput[aria-invalid=true] { border-bottom: 2px solid #a02b48; background: #fff4f6; color: var(--ink); }
+.mainContent { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); }
+.graphPanel { background: linear-gradient(145deg,#f5f1fc,#e8e9f8); padding: 12px 20px 22px; border-right: 1px solid var(--hairline); min-width: 0; }
+.legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 18px; color: var(--ink-soft); font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.currentDot, .candidateDot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent-deep); }
+.candidateDot { border: 2px solid var(--accent-deep); background: white; }
+.regionSwatch { width: 12px; height: 10px; background: #b5a2dd70; border: 1px solid var(--accent); }
+.graphNote { font-size: 13px; margin: 16px 0 0; text-align: center; }
+.lesson { padding: 30px; min-width: 0; display: flex; flex-direction: column; }
+.lesson .feasibility { margin-top: auto; }
+.lesson h3 { font-size: 25px; line-height: 1.3; letter-spacing: -.03em; margin-top: 15px; }
+.readout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 15px; padding-block: 24px; border-bottom: 1px solid var(--hairline); }
+.readout dt { color: var(--ink-muted); font-size: 12px; margin-bottom: 7px; }
+.readout dd { font-family: var(--font-mono); font-size: clamp(18px,2vw,26px); color: var(--accent-deep); overflow-wrap: anywhere; }
+.explanation { font-size: 15px; line-height: 1.8; margin-block: 22px; min-height: 5.4em; }
+.mathBlock { display: grid; gap: 14px; margin-top: 22px; padding: 16px 18px; background: #ffffff55; border: 1px solid var(--hairline); border-radius: 8px; }
+.mathBlock dt { font-size: 12px; color: var(--ink-muted); margin-bottom: 6px; }
+.mathBlock dd { font-family: var(--font-mono); font-size: 13px; line-height: 1.8; color: var(--ink-soft); overflow-wrap: anywhere; }
+.mathBlock strong { color: var(--accent-deep); font-weight: 600; }
+.mathNote { margin-block: 12px 20px; font-size: 12px; color: var(--ink-muted); line-height: 1.7; }
+.feasibility { font-size: 13px; line-height: 1.7; border-top: 1px solid var(--hairline); padding-top: 18px; }
+.feasibility summary { cursor: pointer; font-weight: 500; padding-block: 8px; }
+.feasibility ul { list-style: none; padding-top: 12px; }
+.feasibility li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding-block: 6px; }
+.feasibility li strong { font-weight: 500; color: var(--accent-deep); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; border-top: 1px solid var(--hairline); padding: 20px 25px; }
+.button { min-height: 44px; padding: 11px 17px; font-size: 13px; border: 1px solid #8e7ba74d; border-radius: 5px; background: #fff7; cursor: pointer; }
+.button:hover:not(:disabled) { background: #e4dbee; }
+.primary { color: white; background: var(--accent-deep); border-color: var(--accent-deep); }
+.primary:hover:not(:disabled) { background: #51388c; }
+.speed { display: flex; gap: 10px; align-items: center; font-size: 12px; margin-left: auto; }
+.speed input[type=range] { width: 120px; min-height: 44px; accent-color: var(--accent-deep); cursor: pointer; }
+.speedValue { font-family: var(--font-mono); font-size: 13px; color: var(--accent-deep); min-width: 2ch; text-align: center; }
+.controlHint, .blocker { margin: 0 25px 20px; color: var(--ink-muted); font-size: 12px; line-height: 1.7; }
+.blocker { color: #962a45; font-size: 14px; }
+.experiment { padding-top: 65px; scroll-margin-top: 100px; }
+.experiment h2 { font-size: 32px; letter-spacing: -.03em; margin-block: 13px 17px; }
+.examples { margin-top: 25px; border-block: 1px solid var(--hairline); }
+.examples summary { cursor: pointer; padding-block: 18px; font-size: 15px; }
+.exampleGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding-block: 5px 22px; }
+.exampleGrid button { text-align: left; padding: 16px; border: 1px solid var(--hairline); border-radius: 6px; background: #fff6; }
+.exampleGrid button:hover, .exampleGrid button[aria-pressed=true] { background: #e7dff2; border-color: var(--accent); }
+.exampleGrid strong { font-size: 14px; display: block; margin-bottom: 8px; }
+.exampleGrid span { font-size: 13px; color: var(--ink-soft); line-height: 1.7; display: block; }
+.editor { margin-top: 25px; }
+.editorHelp { font-size: 13px; color: var(--ink-soft); line-height: 1.8; margin-block: 15px; max-width: 80ch; }
+.editor fieldset { border: 0; margin-block: 24px; min-width: 0; }
+.editor legend { font-size: 16px; font-weight: 500; margin-bottom: 15px; }
+.objectiveFields { display: flex; gap: 15px; max-width: 400px; }
+.field { min-width: 0; flex: 1; }
+.field label { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 7px; }
+.field input { width: 100%; min-height: 44px; padding: 10px; border-radius: 5px; border: 1px solid #8e7ba780; background: #fffa; font-size: 16px; color: var(--ink); }
+.field input[aria-invalid=true] { border: 2px solid #a02b48; background: #fff4f6; }
+.fieldError { color: #962a45; font-size: 12px; line-height: 1.65; margin-top: 8px; }
+.constraintRows { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.constraintRow { padding: 18px; border: 1px solid var(--hairline); border-radius: 6px; background: #fff4; }
+.rowNumber { display: block; font-size: 12px; color: var(--ink-muted); margin-bottom: 15px; }
+.coefficients { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.removeButton { display: block; color: #962a45; font-size: 12px; min-height: 44px; margin-top: 8px; padding-right: 15px; }
+.editorActions { display: flex; gap: 12px; flex-wrap: wrap; }
+@media(max-width:900px) { .mainContent { grid-template-columns: 1fr; } .graphPanel { border-right: 0; border-bottom: 1px solid var(--hairline); } .graphPanel > svg { max-width: 550px; margin-inline:auto; } .explanation { min-height: 0; } .exampleGrid { grid-template-columns: 1fr 1fr; } }
+@media(max-width:600px) {
+ .container { width: calc(100% - 36px); padding-top: 22px; }
+ .header { margin-top: 16px; } .intro { font-size: 14px; }
+ .problemHeading, .lesson { padding: 21px; } .problemHeading h2 { font-size: 21px; }
+ .objectiveRow, .staticFormula { font-size: 19px; gap: 6px; } .objectiveInput { width: 3ch; }
+ .graphPanel { padding: 5px 5px 20px; } .legend { gap: 10px; }
+ .controls { padding: 20px 16px; gap: 8px; } .button { padding-inline: 13px; }
+ .speed { margin-left: 0; width: 100%; margin-top: 8px; justify-content: space-between; }
+ .constraintRows, .exampleGrid { grid-template-columns: 1fr; } .constraintRow { padding: 16px; } .coefficients { gap: 10px; }
+ .experiment h2 { font-size: 29px; } .controlHint, .blocker { margin-inline: 16px; }
 }
-
-.section {
-  max-width: 64rem;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-  border-radius: 1rem;
-  overflow: hidden;
-  border: 1px solid #ddd;
-  background: white;
-}
-
-.header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.title {
-  font-size: 1.5rem;
-  font-weight: 500;
-  color: rgb(15 23 42);
-  margin-bottom: 0.5rem;
-}
-
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-}
-
-.button {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s;
-  font-size: 0.875rem;
-  border: none;
-  cursor: pointer;
-}
-
-.buttonSecondary {
-  background-color: rgb(241 245 249);
-  color: rgb(51 65 85);
-}
-
-.buttonSecondary:hover {
-  background-color: rgb(226 232 240);
-}
-
-.buttonSecondary:disabled {
-  cursor: not-allowed;
-}
-
-.buttonPrimary {
-  background-color: rgb(59 130 246);
-  color: white;
-}
-
-.buttonPrimary:hover {
-  background-color: rgb(37 99 235);
-}
-
-.buttonPrimary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.speedControl {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: rgb(75 85 99);
-}
-
-.slider {
-  width: 4rem;
-  height: 0.25rem;
-  background-color: rgb(226 232 240);
-  border-radius: 0.5rem;
-  appearance: none;
-  cursor: pointer;
-}
-
-.slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  background: rgb(59 130 246);
-  cursor: pointer;
-}
-
-.slider::-moz-range-thumb {
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  background: rgb(59 130 246);
-  cursor: pointer;
-  border: none;
-}
-
-.speedValue {
-  font-size: 0.75rem;
-  background-color: rgb(241 245 249);
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  min-width: 1.5rem;
-  text-align: center;
-}
-
-/* Main Content Area - Responsive Layout */
-.mainContent {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2rem;
-  margin-bottom: 2rem;
-  align-items: start;
-}
-
-/* Stack on smaller screens */
-@media (max-width: 768px) {
-  .mainContent {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-}
-
-.canvasContainer {
-  border: 1px solid rgb(226 232 240);
-  border-radius: 0.5rem;
-  aspect-ratio: 1;
-  max-width: 600px;
-  width: 100%;
-}
-
-.canvas {
-  width: 100%;
-  height: 100%;
-  border-radius: 0.5rem;
-  background: white;
-}
-
-/* Add this new class for the sidebar container */
-.sideInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.infoGrid {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.infoCard {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  border: 1px solid rgb(226 232 240);
-  padding: 1.5rem;
-  min-width: 280px;
-}
-
-.cardHeader {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: rgb(30 41 59);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.statusDot {
-  width: 0.5rem;
-  height: 0.5rem;
-  background-color: rgb(34 197 94);
-  border-radius: 50%;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: .5;
-  }
-}
-
-.infoItems {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.infoItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background-color: rgb(248 250 252);
-  border-radius: 0.5rem;
-}
-
-.infoLabel {
-  color: rgb(75 85 99);
-  font-weight: 500;
-}
-
-.infoValue {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  font-weight: 600;
-}
-
-.infoValueBlue {
-  color: rgb(37 99 235);
-}
-
-.infoValuePurple {
-  color: rgb(147 51 234);
-}
-
-.infoValueAmber {
-  color: rgb(245 158 11);
-}
-
-.problemContent {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.objectiveBox {
-  padding: 1rem;
-  background: linear-gradient(to right, rgb(239 246 255), rgb(250 245 255));
-  border-radius: 0.5rem;
-  border: 1px solid rgb(219 234 254);
-}
-
-.objectiveLabel {
-  font-size: 0.875rem;
-  color: rgb(75 85 99);
-  margin-bottom: 0.25rem;
-}
-
-.objectiveFormula {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 1.125rem;
-  color: rgb(29 78 216);
-  font-weight: 600;
-}
-
-.constraintsSection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.constraintsLabel {
-  font-size: 0.875rem;
-  color: rgb(75 85 99);
-  margin-bottom: 0.5rem;
-}
-
-.constraint {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  color: rgb(51 65 85);
-  padding: 0.5rem;
-  background-color: rgb(248 250 252);
-  border-radius: 0.375rem;
-}
-
-.nonNegativity {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.875rem;
-  color: rgb(107 114 128);
-  margin-top: 0.75rem;
-}
-
-.nonNegativityConstraint {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-}
-
-.tabsContainer {
-  display: flex;
-  margin-bottom: 1rem;
-  gap: 1rem;
-}
-
-.constraintRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.addConstraintBtn {
-  padding: 0.5rem 1rem;
-  background-color: rgb(59 130 246);
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.addConstraintBtn:hover {
-  background-color: rgb(37 99 235);
-}
-
-.constraintInput {
-  width: 4rem;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  border-radius: 0.375rem;
-  border: 1px solid rgb(226 232 240);
-  padding: 0.25rem 0.5rem;
-  font-size: 0.875rem;
-  color: rgb(51 65 85);
-  background-color: white;
-  transition: border-color 0.2s;
-}
-
-.constraintInput:focus {
-  outline: none;
-  border-color: rgb(59 130 246);
-  box-shadow: 0 0 0 3px rgb(191 219 254 / 0.5);
-}
-
-.removeConstraintBtn {
-  background: none;
-  border: none;
-  color: rgb(220 38 38);
-  font-weight: 700;
-  font-size: 1.25rem;
-  cursor: pointer;
-  padding: 0 0.25rem;
-  transition: color 0.2s;
-}
-
-.removeConstraintBtn:hover {
-  color: rgb(185 28 28);
-}
-
-.buttonDanger {
-  background-color: #fee2e2; /* light red */
-  color: #b91c1c;            /* dark red text */
-  border: 1px solid #fca5a5;
-  transition: background-color 0.2s;
-}
-
-.buttonDanger:hover {
-  background-color: #fecaca;
-}
-
-.constraintsActions {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-  gap: 1rem;
-}
-
-.constraintInput {
-  width: 4.5rem; /* wider than before */
-  padding: 0.25rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.375rem;
-}
-
-.inputInline {
-  width: auto;
-  max-width: 5ch;
-  font-size: 1rem;
-  text-align: center;
-  border: none;
-  border-bottom: 1px solid #ccc;
-  margin: 0 4px;
-  background: transparent;
-  appearance: textfield;
-  box-sizing: content-box;
-}
-
-.inputInline:focus {
-  outline: none;
-  border-color: #3b82f6;
-  background: #eef;
-}
-
-.inputInline::-webkit-outer-spin-button,
-.inputInline::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.graphPanel .controls { margin: 20px -20px 0; padding: 18px 18px 12px; }
+.graphPanel .controlHint, .graphPanel .blocker { margin: 0 0 10px; }
+.graphPanel .speed { margin-left: 0; }
+@media(max-width:600px) { .graphPanel .controls { margin-inline: -5px; padding-inline: 12px; } .graphPanel .controlHint, .graphPanel .blocker { margin-inline: 12px; } }
+@media(min-width:901px) and (max-height:760px) {
+ .graphPanel > svg { max-width: min(100%, 53svh); margin-inline: auto; }
+ .lesson { padding: 23px; } .readout { padding-block: 18px; }
+ .explanation { margin-block: 18px; min-height: 0; }
+ .feasibility { padding-top: 10px; }
 }

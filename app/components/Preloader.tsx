@@ -54,7 +54,7 @@ export default function Preloader() {
           key="preloader"
           role="status"
           aria-label="Loading"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-b from-purple-100 to-sky-50"
+          className="preloader-screen fixed inset-0 z-[100] flex items-center justify-center"
           exit={{ y: "-100%" }}
           transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
         >
@@ -70,7 +70,7 @@ export default function Preloader() {
                 <motion.path
                   key={i}
                   d={d}
-                  stroke="#17171d"
+                  stroke="var(--ink)"
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -88,7 +88,7 @@ export default function Preloader() {
                   cx={x}
                   cy={y}
                   r="2"
-                  fill="#17171d"
+                  fill="var(--ink)"
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ duration: 0.3, delay: 0.55 + i * 0.04, ease: "backOut" }}

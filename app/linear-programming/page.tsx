@@ -1,14 +1,10 @@
 import LinearProgramming from "./LinearProgramming";
 
 export const metadata = {
-  title: "Linear Programming Demo",
-  description: "Interactive simplex-method visualisation",
+  title: "Linear Programming — Dong Li",
+  description: "Explore the Simplex method: edit constraints, follow each iteration, and find an optimal solution in an interactive mathematical playground.",
 };
 
 export default function Page() {
-  return (
-    <div className="max-w-4xl mx-auto mt-8">
-      <LinearProgramming />
-    </div>
-  );
+  return <LinearProgramming />;
 }

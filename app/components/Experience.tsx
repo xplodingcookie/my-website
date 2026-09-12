@@ -6,6 +6,7 @@ interface ExperienceProps {
   period: string;
   location?: string;
   description: string;
+  evidence?: { label: string; text: string }[];
   highlights: string[];
   logoUrl?: string;
 }
@@ -16,6 +17,7 @@ export default function Experience({
   period,
   location,
   description,
+  evidence,
   highlights,
   logoUrl,
 }: ExperienceProps) {
@@ -26,6 +28,7 @@ export default function Experience({
       period={period}
       meta={location}
       body={description}
+      evidence={evidence}
       highlights={highlights}
       logoUrl={logoUrl}
       logoAlt={`${company} logo`}

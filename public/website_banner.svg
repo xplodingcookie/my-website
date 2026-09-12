@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <!-- The card is about the site's source, so the art is the code behind it,
+       drawn in the site's own language: the lavender field, graph paper, a
+       quiet editor window, wireframe solids, and the paper plane shipping a
+       commit. -->
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eee5fa"/>
+      <stop offset=".45" stop-color="#eeeefb"/>
+      <stop offset="1" stop-color="#eaf5fa"/>
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#7c6d97" stroke-opacity=".09"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#field)"/>
+  <rect width="1200" height="800" fill="url(#grid)"/>
+
+  <g stroke="#7c6d97" stroke-opacity=".16" stroke-width="2" stroke-dasharray="9 13">
+    <line x1="-40" y1="180" x2="1240" y2="420"/>
+    <line x1="300" y1="-40" x2="1050" y2="840"/>
+    <line x1="-40" y1="700" x2="1240" y2="520"/>
+    <line x1="960" y1="-40" x2="700" y2="840"/>
+  </g>
+
+  <!-- the editor window -->
+  <g>
+    <rect x="150" y="150" width="600" height="430" rx="14" fill="#ffffff8a" stroke="#5c48802e" stroke-width="1.5"/>
+    <line x1="150" y1="208" x2="750" y2="208" stroke="#5c48802e" stroke-width="1.5"/>
+    <circle cx="186" cy="179" r="7" fill="#8267c5"/>
+    <circle cx="212" cy="179" r="7" fill="#9cbee2"/>
+    <circle cx="238" cy="179" r="7" fill="#d6c6f1"/>
+    <g font-family="'SFMono-Regular', Consolas, monospace" font-size="23">
+      <text x="186" y="262" fill="#8a8098">// the code behind this site</text>
+      <text x="186" y="308" fill="#645078">import { maths } from "everything";</text>
+      <text x="186" y="354" fill="#645078">const site = <tspan fill="#6950a9">build</tspan>(curiosity);</text>
+      <text x="186" y="400" fill="#645078">simplex.solve({ maximise: z });</text>
+    </g>
+    <rect x="186" y="436" width="330" height="14" rx="7" fill="#b5a2dd70"/>
+    <rect x="186" y="470" width="216" height="14" rx="7" fill="#9cbee270"/>
+    <rect x="186" y="504" width="270" height="14" rx="7" fill="#d6c6f1"/>
+    <text x="186" y="562" font-family="'SFMono-Regular', Consolas, monospace" font-size="23" fill="#6950a9">git push origin main</text>
+  </g>
+
+  <!-- wireframe solids, echoing the hero's field of satellites -->
+  <g fill="none" stroke="#3a3247" stroke-width="2.2" stroke-linejoin="round" opacity=".8">
+    <path d="M846 474 L982 474 L982 610 L846 610 Z"/>
+    <path d="M896 428 L1032 428 L1032 564 L982 610 M1032 428 L982 474 M896 428 L846 474 M896 428 L896 480"/>
+    <!-- icosahedron, as the intro draws it -->
+    <path d="M955 193 L1009 224 L1009 286 L955 317 L901 286 L901 224 Z"/>
+    <path d="M955 221 L984 272 L926 272 Z"/>
+    <path d="M901 224 L955 221 L955 193 M955 221 L1009 224"/>
+    <path d="M1009 224 L984 272 L1009 286 M984 272 L955 317"/>
+    <path d="M955 317 L926 272 L901 286 M926 272 L901 224"/>
+  </g>
+  <g fill="none" stroke="#655776" stroke-width="1.8" stroke-linejoin="round" opacity=".6">
+    <path d="M1108 388 L1150 432 L1108 476 L1066 432 Z M1066 432 L1150 432 M1108 388 L1108 476"/>
+    <path d="M1078 668 L1132 710 L1050 728 Z M1078 668 L1074 728"/>
+    <path d="M800 315 L838 343 L824 387 L777 387 L762 343 Z M800 315 L824 387 M800 315 L777 387"/>
+    <path d="M1085 158 L1116 200 L1054 208 Z M1085 158 L1082 208"/>
+    <path d="M786 176 L818 190 L818 226 L786 212 Z M786 176 L770 196 L770 232 L786 212 M818 226 L770 232"/>
+  </g>
+</svg>

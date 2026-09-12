@@ -1,145 +1,43 @@
 "use client";
+import useReducedMotion from "./useReducedMotion";
 
 import { useRef } from "react";
 import Image from "next/image";
-import {
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-  useTransform,
-} from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { ArrowUpRight } from "lucide-react";
 
 interface ProjectProps {
   name: string;
   description: string;
   link: string;
   image: string;
-  /** Two-digit index, e.g. "01" */
   index: string;
   reverse?: boolean;
   target?: string;
-  /** "contain" letterboxes very wide images over a blurred backdrop instead of zoom-cropping */
   imageFit?: "cover" | "contain";
 }
 
-const TILT_MAX = 2.5; // degrees
-
-export default function Project({
-  name,
-  description,
-  link,
-  image,
-  index,
-  reverse = false,
-  target = "_blank",
-  imageFit = "cover",
-}: ProjectProps) {
-  const ref = useRef<HTMLAnchorElement>(null);
-  const reducedMotion = useReducedMotion();
-
-  /* image drifts gently within its frame as the card crosses the viewport */
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
-  const imageY = useTransform(scrollYProgress, [0, 1], ["-7%", "7%"]);
-
-  /* subtle 3D tilt toward the cursor */
-  const rx = useMotionValue(0);
-  const ry = useMotionValue(0);
-  const rotateX = useSpring(rx, { stiffness: 200, damping: 24 });
-  const rotateY = useSpring(ry, { stiffness: 200, damping: 24 });
-
-  const handleMove = (e: React.MouseEvent) => {
-    if (reducedMotion || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    rx.set(-py * TILT_MAX * 2);
-    ry.set(px * TILT_MAX * 2);
-  };
-  const handleLeave = () => {
-    rx.set(0);
-    ry.set(0);
-  };
-
-  return (
-    <div style={{ perspective: 1200 }}>
-      <motion.a
-        ref={ref}
-        href={link}
-        target={target}
-        rel="noopener noreferrer"
-        onMouseMove={handleMove}
-        onMouseLeave={handleLeave}
-        style={reducedMotion ? undefined : { rotateX, rotateY }}
-        className="group glass-card grid md:grid-cols-2 overflow-hidden will-change-transform"
-        initial={{ opacity: 0, y: 44 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {/* image */}
-        <div
-          className={`relative h-60 md:h-80 overflow-hidden ${reverse ? "md:order-2" : ""}`}
-        >
-          <motion.div
-            style={reducedMotion ? undefined : { y: imageY }}
-            className="absolute inset-[-8%] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
-          >
-            {imageFit === "contain" && (
-              <Image
-                src={image}
-                alt=""
-                aria-hidden="true"
-                fill
-                style={{ objectFit: "cover" }}
-                className="scale-110 blur-2xl brightness-90"
-                sizes="(min-width: 768px) 50vw, 100vw"
-              />
-            )}
-            <Image
-              src={image}
-              alt={name}
-              fill
-              style={{ objectFit: imageFit }}
-              sizes="(min-width: 768px) 50vw, 100vw"
-            />
-          </motion.div>
-          {/* soft veil so the image sits *in* the card rather than on it */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-t from-indigo-950/10 to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-20"
-          />
-        </div>
-
-        {/* content */}
-        <div className={`relative p-7 sm:p-9 flex flex-col justify-center ${reverse ? "md:order-1" : ""}`}>
-          <span
-            aria-hidden="true"
-            className="absolute top-2 right-5 text-[6rem] leading-none font-bold text-indigo-900/[0.05] select-none pointer-events-none"
-          >
-            {index}
-          </span>
-
-          <h3 className="font-semibold text-xl sm:text-2xl mb-3 text-neutral-900 flex items-start gap-2">
-            <span>{name}</span>
-            <span
-              aria-hidden="true"
-              className="inline-block text-indigo-500 text-lg mt-0.5 transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:translate-x-1"
-            >
-              ↗
-            </span>
-          </h3>
-          <p className="text-sm text-neutral-600 leading-relaxed mb-5 max-w-prose">{description}</p>
-
-          <span className="link-underline self-start text-sm font-medium text-indigo-600">
-            View project
-          </span>
-        </div>
-      </motion.a>
+export default function Project({ name, description, link, image, index, reverse = false, target = "_blank", imageFit = "cover" }: ProjectProps) {
+  const ref = useRef<HTMLElement>(null);
+  const reduced = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const y = useTransform(scrollYProgress, [0, 1], ["-3%", "3%"]);
+  const isReport = link.endsWith(".pdf");
+  return <motion.article ref={ref} className={`project-row ${reverse ? "project-reverse" : ""}`}
+    initial={false} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "0px 0px -40px 0px" }} transition={{ duration: .7, ease: [.22, 1, .36, 1] }}>
+    <a href={link} target={target} rel="noopener noreferrer" className={`project-art ${isReport ? "project-art-taxi" : ""}`} tabIndex={-1} aria-hidden="true">
+      <motion.div className="project-image" style={reduced ? undefined : { y }}>
+        <Image src={image} alt="" fill style={{ objectFit: imageFit }} sizes="(min-width: 900px) 55vw, 100vw" unoptimized={image.endsWith(".svg")} />
+      </motion.div>
+      <span className="art-open"><ArrowUpRight size={21} /></span>
+      <span className="art-caption">{isReport ? "DATA → INSIGHT → IMPACT" : "ALWAYS A WORK IN PROGRESS :)"}</span>
+    </a>
+    <div className="project-copy">
+      <p className="project-eyebrow">{index} / {isReport ? "Data science & research" : "Under the hood"}</p>
+      <h3><a href={link} target={target} rel="noopener noreferrer">{name}</a></h3>
+      <p className="project-description">{description}</p>
+      <ul className="skills-list">{(isReport ? ["Machine Learning", "Predictive Modelling"] : ["Open Source", "Experiments"]).map(t=><li key={t}>{t}</li>)}</ul>
+      <a href={link} target={target} rel="noopener noreferrer" className="project-cta">{isReport ? "Read the research" : "Explore the source"}<span className="project-link-meta">{isReport ? "PDF" : "GITHUB"}</span><ArrowUpRight size={18} aria-hidden="true" /></a>
     </div>
-  );
+  </motion.article>;
 }

@@ -1,738 +1,568 @@
-'use client';
-
-import { useEffect, useRef, useState, useCallback } from 'react';
-import styles from './LinearProgramming.module.css';
-import ControlPanel from './components/ControlPanel';
-import ConstraintsList from './components/ConstraintsList';
-import InfoPanel from './components/InfoPanel';
-import ProblemPanel from './components/ProblemPanel';
-
-/****************
- * Simplex core *
- * Phase I + II *
- ****************/
-export type Step = { sol: number[]; obj: number; optimal: boolean };
-export type LPStatus = 'optimal' | 'unbounded' | 'infeasible' | 'searching';
-export type Progress = 'idle' | 'searchingForBFS' | 'foundBFS' | 'searchingForOpitmal' | 'foundOptimal'
-
-export class SimplexSolver {
-  /* problem data */
-  private readonly cOrig: number[];
-  private readonly n: number;       // # decision variables
-  private m: number;                // # constraints (may shrink after Phase I)
-
-  /* tableau state */
-  private tableau: number[][] = []; // (m+1) x (cols) tableau with RHS
-  private basicVars: number[] = []; // basic variable index per row
-  private artificial = new Set<number>();
-
-  /* solver state */
-  private status: LPStatus = 'optimal';
-
-  constructor(c: number[], A: number[][], b: number[]) {
-    this.cOrig = c.slice();
-    this.n = c.length;
-    this.m = A.length;
-    this.buildPhaseI(A, b);
-  }
-
-  /* ---------- top-level driver ---------- */
-  solve(maxIter = 1000): { steps: Step[]; status: LPStatus } {
-    const steps: Step[] = [];
-
-    /* ---------- Phase I ---------- */
-    this.runSimplex(steps, maxIter);
-    const phaseIObj = this.tableau.at(-1)!.at(-1)!;   // value of –sigma artificial
-    if (phaseIObj > 1e-8) {  // some artificial > 0
-      this.status = 'infeasible';
-      return { steps, status: this.status };
-    }
-
-    this.dropArtificial();  // remove artificial cols, fix basis
-
-    /* ---------- Phase II ---------- */
-    this.buildPhaseIIObjective();
-    this.status = 'searching';
-    this.runSimplex(steps, maxIter);
-
-    return { steps, status: this.status };
-  }
-
-  /* ---------- build initial (Phase I) tableau ---------- */
-  private buildPhaseI(A: number[][], b: number[]) {
-    const colTypes: ('x' | 's' | 't' | 'a')[] = [];
-
-    const addColumn = (type: 's' | 't' | 'a') => {
-      colTypes.push(type);
-      const idx = colTypes.length - 1;
-      this.tableau.forEach(r => r.splice(idx, 0, 0));
-      return idx;
-    };
-
-    const extendRow = (row: number[], upto: number) => {
-      while (row.length < upto) row.push(0);
-    };
-
-    /* decision-variable columns */
-    for (let j = 0; j < this.n; j++) colTypes.push('x');
-
-    /* constraint rows */
-    for (let i = 0; i < this.m; i++) {
-      let row = [...A[i]];
-      let rhs = b[i];
-      let isLE = true;
-      // force feasiblity
-      if (rhs < 0) {               // flip sign if RHS is negative
-        row = row.map(v => -v);
-        rhs = -rhs;
-        isLE = !isLE;
-      }
-
-      if (isLE) {                  // ≤ : add slack
-        const jS = addColumn('s');
-        extendRow(row, jS + 1);
-        row[jS] = 1;
-        this.basicVars.push(jS);
-      } else {                     // ≥ : surplus + artificial
-        const jT = addColumn('t');
-        extendRow(row, jT + 1);
-        row[jT] = -1;
-        const jA = addColumn('a');
-        extendRow(row, jA + 1);
-        row[jA] = 1;
-        this.artificial.add(jA);
-        this.basicVars.push(jA);
-      }
-
-      row.push(rhs);
-      this.tableau.push(row);
-    }
-
-    /* make sure every undefined => 0 (one pass is enough) */
-    this.tableau = this.tableau.map(r => r.map(v => v ?? 0));
-
-    /* Phase-I objective  maximise –sigma artificial  */
-    const cols = this.tableau[0].length;
-    const obj = new Array(cols).fill(0);
-    for (const j of this.artificial) obj[j] = 1;
-
-    /* zero out coeffs of basic artificials */
-    this.tableau.forEach((row, i) => {
-      const bv = this.basicVars[i];
-      if (this.artificial.has(bv)) {
-        const coeff = obj[bv];
-        row.forEach((v, j) => (obj[j] -= coeff * v));
-      }
-    });
-
-    this.tableau.push(obj);
-  }
-
-  /* ---------- rebuild true objective for Phase II ---------- */
-  private buildPhaseIIObjective() {
-    const cols = this.tableau[0].length;
-    const obj = new Array(cols).fill(0);
-
-    for (let j = 0; j < this.n; j++) obj[j] = -this.cOrig[j];   // start with –c
-
-    /* add c_B · row_i for each basic decision variable */
-    for (let i = 0; i < this.m; i++) {
-      const bv = this.basicVars[i];
-      if (bv >= 0 && bv < this.n) {
-        const cb = this.cOrig[bv];
-        for (let j = 0; j < cols; j++) obj[j] += cb * this.tableau[i][j];
-      }
-    }
-
-    /* canonicalise: make all basic columns reduced costs zero */
-    for (let i = 0; i < this.m; i++) {
-      const bv = this.basicVars[i];
-      const coeff = obj[bv];
-      if (Math.abs(coeff) > 1e-12) {
-        for (let j = 0; j < cols; j++) obj[j] -= coeff * this.tableau[i][j];
-      }
-    }
-
-    this.tableau[this.tableau.length - 1] = obj;
-  }
-
-  /* ---------- drop artificial columns after Phase I ---------- */
-  private dropArtificial() {
-    if (this.artificial.size === 0) return;
-
-    /* pivot any still-basic artificial out of the basis */
-    for (let i = 0; i < this.m; i++) {
-      const bv = this.basicVars[i];
-      if (!this.artificial.has(bv)) continue;
-
-      const col = this.tableau[i].findIndex(
-        (v, j) => Math.abs(v) > 1e-10 && !this.artificial.has(j)
-      );
-
-      if (col !== -1) {
-        this.pivot(col, i);        // degenerate pivot (RHS stays 0)
-      } else {
-        this.tableau.splice(i, 1);
-        this.basicVars.splice(i, 1);
-        this.m--;                  // keep m consistent
-      }
-    }
-
-    /* rebuild tableau without artificial columns */
-    const keep: number[] = [];
-    this.tableau[0].slice(0, -1).forEach((_, j) => {
-      if (!this.artificial.has(j)) keep.push(j);
-    });
-
-    this.tableau = this.tableau.map(r => [...keep.map(j => r[j]), r.at(-1)!]);
-
-    /* remap basic variable indices */
-    const map = new Map<number, number>();
-    keep.forEach((oldIdx, newIdx) => map.set(oldIdx, newIdx));
-    this.basicVars = this.basicVars.map(j => (j === -1 ? -1 : map.get(j)!));
-
-    this.artificial.clear();
-  }
-
-  /* ---------- simplex iterations (one phase) ---------- */
-  private runSimplex(steps: Step[], maxIter: number) {
-    let k = 0;
-    while (k < maxIter) {
-      const e = this.entering();
-      if (e === -1) {
-        this.status = 'optimal';
-        break;
-      }
-      const l = this.leaving(e);
-      if (l === -1) { this.status = 'unbounded'; break; }
-      this.pivot(e, l);
-      steps.push({ sol: this.solution(), obj: this.objective(), optimal: false });
-      k++;
-    }
-    steps.push({ sol: this.solution(), obj: this.objective(), optimal: this.status === 'optimal' });
-  }
-
-  /* ---------- helpers ---------- */
-  private solution(): number[] {
-    const x = Array(this.n).fill(0);
-    for (let i = 0; i < this.m; i++) {
-      const bv = this.basicVars[i];
-      if (bv >= 0 && bv < this.n) x[bv] = this.tableau[i].at(-1)!;
-    }
-    return x;
-  }
-
-  private colHasPositive(col: number, eps = 1e-12): boolean {
-    for (let i = 0; i < this.m; i++) if (this.tableau[i][col] > eps) return true;
-    return false;
-  }
-
-  private entering(): number {
-    const obj = this.tableau.at(-1)!;
-    let e = -1, mostNeg = 0;
-    for (let j = 0; j < obj.length - 1; j++) {
-      if (obj[j] < mostNeg - 1e-12 && this.colHasPositive(j)) {
-        mostNeg = obj[j]; e = j;
-      }
-    }
-    // −1 => optimal
-    return e;
-  }
-
-  private leaving(e: number): number {
-    let l = -1, best = Infinity;
-    for (let i = 0; i < this.m; i++) {
-      const a = this.tableau[i][e];
-      const b = this.tableau[i].at(-1)!;
-      if (a > 1e-12 && b >= -1e-12) {
-        const ratio = b / a;
-        if (ratio < best - 1e-12) { best = ratio; l = i; }
-      }
-    }
-    // −1 => unbounded
-    return l;
-  }
-
-  private pivot(e: number, l: number) {
-    const p = this.tableau[l][e];
-    this.tableau[l] = this.tableau[l].map(v => v / p);
-    for (let i = 0; i < this.tableau.length; i++) {
-      if (i === l) continue;
-      const m = this.tableau[i][e];
-      this.tableau[i] = this.tableau[i].map((v, j) => v - m * this.tableau[l][j]);
-    }
-    this.basicVars[l] = e;
-  }
-
-  private objective(): number { return this.tableau.at(-1)!.at(-1)!; }
-}
-
-function hullFromConstraints(cons: number[][]): number[][] {
-  const pts: number[][] = [];
-  for (let i = 0; i < cons.length; i++) {
-    for (let j = i + 1; j < cons.length; j++) {
-      const [a1, b1, c1] = cons[i];
-      const [a2, b2, c2] = cons[j];
-      const D = a1 * b2 - a2 * b1;
-      if (Math.abs(D) < 1e-9) continue;
-      const x = (c1 * b2 - c2 * b1) / D;
-      const y = (a1 * c2 - a2 * c1) / D;
-      if (!isFinite(x) || !isFinite(y)) continue;
-      let ok = true;
-      for (const [a, b, c] of cons) if (a * x + b * y > c + 1e-9) { ok = false; break; }
-      if (ok) pts.push([x, y]);
-    }
-  }
-  if (pts.length === 0) return [];
-  const [cx, cy] = pts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0]).map(s => s / pts.length);
-  return pts.sort((p, q) => Math.atan2(p[1] - cy, p[0] - cx) - Math.atan2(q[1] - cy, q[0] - cx));
-}
-
-function fitToCanvas(pts: number[][], width: number, height: number, pad = 30) {
-  const xs = pts.map(([x]) => x), ys = pts.map(([, y]) => y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const hullW = maxX - minX || 1, hullH = maxY - minY || 1;
-  const scale = Math.min((width - 2 * pad) / hullW, (height - 2 * pad) / hullH);
-  const origin = { x: pad + (-minX) * scale, y: height - pad - (-minY) * scale };
-  return { scale, origin };
-}
-
-export function tween(
-  from: number[],
-  to: number[],
-  updatePoint: (p: number[]) => void,
-  duration = 600,
-  easing = (t: number) => t * t * (3 - 2 * t),
-  onDrawStep?: (intermediate: number[]) => void
-) {
-  return new Promise<void>(resolve => {
-    const t0 = performance.now();
-    function frame(now: number) {
-      const t = Math.min(1, (now - t0) / duration);
-      const p = from.map((v, i) => v + (to[i] - v) * easing(t));
-      updatePoint(p);
-      onDrawStep?.(p);
-      if (t < 1) requestAnimationFrame(frame);
-      else resolve();
-    }
-    requestAnimationFrame(frame);
-  });
-}
-
-/*********************
- *     Component     *
- *********************/
-export default function LinearProgramming() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [problem, setProblem] = useState({
-    objective: [3, 2],
-    constraints: [
-      [ 9, 10, 899 ],
-      [ 7, -7, 63 ],
-      [ 3, 3, 327 ],
-      [ 0, 8, 425 ],
-      [ -2, 4, 116 ],
-      [ 8, 2, 453 ],
-      [ 2, 17, 1087 ],
-      [ -10, 3, -67 ],
-      [ 1, 8, 431 ],
-      [ 3, 6, 354 ],
-      [ -5, -2, -151 ],
-      [ -12, 4, 81 ],
-      [ -4, -8, -328 ],
-      [ -8, 3, -9 ],
-      [ 2, -6, -133 ],
-      [ -4, -19, -475 ],
-      [ -4, 2, -56 ],
-      [ -7, -4, -218 ],
-      [ -2, -11, -152 ],
-      [ -2, -7, -124 ],
-      [ 13, 2, 581 ],
-      [ -4, -18, -493 ],
-      [ -4, -5, -311 ],
-      [ 15, -10, 645 ],
-      [ 1, 3, 163 ],
-      [0, -1, 0],
-      [-1, 0, 0]
-    ],
-  });
-  const [point, setPoint] = useState([0, 0]);
-  const [optimal, setOptimal] = useState<number[] | null>(null);
-  const [speed, setSpeed] = useState(5);
-  const [running, setRunning] = useState(false);
-  const [iter, setIter] = useState(0);
-  const [path, setPath] = useState<number[][]>([]);
-  const [trailSegment, setTrailSegment] = useState<[number[], number[]] | null>(null);
-  // const [status, setStatus] = useState<Progress>('idle');
-
-  /* ---------- canvas setup ---------- */
-  useEffect(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    const dpr = window.devicePixelRatio ?? 1;
-    const rect = c.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-
-    c.width = width * dpr;
-    c.height = height * dpr;
-
-    const ctx = c.getContext('2d');
-    if (ctx) ctx.scale(dpr, dpr);
-  }, []);
-
-  const draw = useCallback(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    const ctx = c.getContext('2d');
-    if (!ctx) return;
-
-    const width = c.getBoundingClientRect().width;
-    const height = c.getBoundingClientRect().height;
-
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, width, height);
-
-    // Draw faint grid lines
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
-    ctx.lineWidth = 1;
-    const gridSpacing = 40;
-    for (let x = 0; x <= width; x += gridSpacing) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-    }
-    for (let y = 0; y <= height; y += gridSpacing) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-    }
-    ctx.stroke();
-
-    // 1. hull + viewport transform
-    const hull = hullFromConstraints(problem.constraints);
-    const { scale: unit, origin } = fitToCanvas(hull.length ? [...hull , [0, 0]] : [[0, 0]], width, height, 40);
-
-    /* helper that converts logical => canvas coordinates */
-    const toCanvas = (x: number, y: number) => [
-      origin.x + x * unit,
-      origin.y - y * unit,
-    ];
-
-    // 2. axes
-    ctx.strokeStyle = '#d4d4d4';
-    ctx.beginPath();
-    if (origin.y >= 0 && origin.y <= height) {
-      ctx.moveTo(0, origin.y);
-      ctx.lineTo(width, origin.y);
-    }
-    if (origin.x >= 0 && origin.x <= width) {
-      ctx.moveTo(origin.x, 0);
-      ctx.lineTo(origin.x, height);
-    }
-    ctx.stroke();
-
-    ctx.fillStyle = '#64748b';
-    ctx.font = '14px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    if (origin.y >= 10) {
-      ctx.fillText('x₁', width - 20, origin.y + 5);
-    }
-    if (origin.x <= width - 30) {
-      ctx.fillText('x₂', origin.x + 5, 10);
-    }
-
-    // 3. feasible polygon
-    if (hull.length) {
-      ctx.beginPath();
-      const [sx, sy] = toCanvas(hull[0][0], hull[0][1]);
-      ctx.moveTo(sx, sy);
-      for (let k = 1; k < hull.length; k++) {
-        const [vx, vy] = toCanvas(hull[k][0], hull[k][1]);
-        ctx.lineTo(vx, vy);
-      }
-      ctx.closePath();
-      ctx.fillStyle   = 'rgba(59,130,246,0.15)';
-      ctx.strokeStyle = '#3b82f6';
-      ctx.fill();
-      ctx.stroke();
-    }
-    // 3.5 Draw all constraint lines as dotted
-    for (const [a, b, c] of problem.constraints) {
-      const pts: number[][] = [];
-
-      if (Math.abs(b) > 1e-6) {
-        const x1 = -1000, y1 = (c - a * x1) / b;
-        const x2 = 1000, y2 = (c - a * x2) / b;
-        pts.push(toCanvas(x1, y1), toCanvas(x2, y2));
-      } else if (Math.abs(a) > 1e-6) {
-        const y1 = -1000, x1 = (c - b * y1) / a;
-        const y2 = 1000, x2 = (c - b * y2) / a;
-        pts.push(toCanvas(x1, y1), toCanvas(x2, y2));
-      } else continue;
-
-      const [[x1, y1], [x2, y2]] = pts;
-
-      ctx.beginPath();
-      ctx.setLineDash([6, 6]);
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-      ctx.lineWidth = 1;
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-
-    // 3.6 Draw solid edges along the convex hull
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([]);
-
-    for (let i = 0; i < hull.length; i++) {
-      const [x1, y1] = toCanvas(hull[i][0], hull[i][1]);
-      const [x2, y2] = toCanvas(hull[(i + 1) % hull.length][0], hull[(i + 1) % hull.length][1]);
-
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    }
-  
-    // 4. Live direction vectors
-    ctx.strokeStyle = '#7c3aed';
-    ctx.lineWidth = 2;
-    for (let i = 1; i < path.length; i++) {
-      const [fx, fy] = toCanvas(path[i - 1][0], path[i - 1][1]);
-      const [tx, ty] = toCanvas(path[i][0],     path[i][1]);
-      ctx.beginPath();
-      ctx.moveTo(fx, fy);
-      ctx.lineTo(tx, ty);
-      ctx.stroke();
-    }
-
-    // 4.5 trail segment (current tween step)
-    if (trailSegment) {
-      const [[fx, fy], [tx, ty]] = trailSegment;
-      const [cx1, cy1] = toCanvas(fx, fy);
-      const [cx2, cy2] = toCanvas(tx, ty);
-      ctx.beginPath();
-      ctx.moveTo(cx1, cy1);
-      ctx.lineTo(cx2, cy2);
-      ctx.stroke();
-    }
-
-    // 5. points
-    const [px, py] = toCanvas(point[0], point[1]);
-    const isOptimal =
-      optimal &&
-      Math.abs(point[0] - optimal[0]) < 1e-6 &&
-      Math.abs(point[1] - optimal[1]) < 1e-6;
-
-    ctx.fillStyle = isOptimal ? '#22c55e' : '#ec4899';
-    ctx.beginPath();
-    ctx.arc(px, py, 4, 0, Math.PI * 2);
-    ctx.fill();
-  }, [point, optimal, problem, path, trailSegment]);
-
-  useEffect(draw, [draw]);
-
-  const randomise = () => {
-    // Create a skewed octagon
-    const n = 15;
-    const baseRadius = 15 + Math.random() * 15;
-    
-    // Start with regular octagon angles, then add skew
-    const baseAngles = [...Array(n)].map((_, i) => (i * 2 * Math.PI) / n);
-    
-    // Add random skew to each angle (but keep them ordered)
-    const skewFactor = 0.3 + Math.random() * 0.4;
-    // (angle, i)
-    const angles = baseAngles.map(angle => {
-      const skew = (Math.random() - 0.5) * skewFactor;
-      return angle + skew;
-    }).sort((a, b) => a - b);
-    
-    // Create vertices with varying radii for more interesting shapes
-    const verts = angles.map(angle => {
-      const radiusVariation = 0.7 + Math.random() * 0.6;
-      const radius = baseRadius * radiusVariation;
-      return [
-        Math.cos(angle) * radius,
-        Math.sin(angle) * radius
-      ];
-    });
-
-    // Add some skew to the entire shape
-    const shearX = (Math.random() - 0.5) * 0.3;
-    const shearY = (Math.random() - 0.5) * 0.3;
-    const skewedVerts = verts.map(([x, y]) => [
-      x + shearY * y,
-      y + shearX * x
-    ]);
-
-    // This forces Phase I to find an initial BFS since (0,0) won't be feasible
-    const minX = Math.min(...skewedVerts.map(v => v[0]));
-    const minY = Math.min(...skewedVerts.map(v => v[1]));
-    const pad  = 5;
-    const dx   = (minX < 0 ? -minX : 0) + pad;
-    const dy   = (minY < 0 ? -minY : 0) + pad;
-
-    const translatedVerts = skewedVerts.map(([x, y]) => [
-      Math.round(x + dx),
-      Math.round(y + dy)
-    ]);
-
-    // turn every edge into an inequality  a·x + b·y ≤ c
-    const [cx, cy] = translatedVerts.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0])
-                                   .map(s => s / n);
-    const cons: number[][] = [];
-    for (let i = 0; i < n; i++) {
-      const [x1, y1] = translatedVerts[i];
-      const [x2, y2] = translatedVerts[(i + 1) % n];
-      // inward normal
-      const nx =  y2 - y1;
-      const ny = -(x2 - x1);
-      // choose sign so that the centroid satisfies the inequality
-      const sign = (nx * cx + ny * cy < nx * x1 + ny * y1) ? 1 : -1;
-      const a =  sign * nx;
-      const b =  sign * ny;
-      let c =  sign * (nx * x1 + ny * y1);
-
-      // randomly change them to avoid degeneracy
-      const perturbation = Math.round((Math.random() - 0.5) * 2);;
-      c += perturbation;
-
-      cons.push([a, b, c]);
-    }
-
-    // objective random but positive
-    const obj = [1 + Math.floor(Math.random() * 5), 1 + Math.floor(Math.random() * 5)];
-
-    cons.push([-1, 0, 0]);  // x₁ ≥ 0
-    cons.push([0, -1, 0]);  // x₂ ≥ 0
-
-    setProblem({ objective: obj, constraints: cons });
-    reset();
-  }
-
-  const reset = () => {
-    setPoint([0, 0]);
-    setOptimal(null);
-    setIter(0);
-    setRunning(false);
-    setPath([]);
-  };
-
-  const solve = async () => {
-    reset();
-    if (running) return;
-    setRunning(true);
-
-    const start = [0, 0];
-    setTrailSegment(null);
-
-    const A = problem.constraints.map(v => v.slice(0, 2));
-    const b = problem.constraints.map(v => v[2]);
-    const solver = new SimplexSolver(problem.objective, A, b);
-    const { steps, status } = solver.solve();
-
-    await tween(
-      start,
-      steps[0].sol,
-      setPoint,
-      1500 / speed,
-      undefined,
-      current => setTrailSegment([start, current])
+"use client";
+import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import styles from "./LinearProgramming.module.css";
+import useReducedMotion from "../components/useReducedMotion";
+import { SimplexSolver, type Step } from "./solver";
+import {
+  ORIGINAL,
+  EXAMPLES,
+  toDraft,
+  validateDraft,
+  numberError,
+  format,
+  isFeasible,
+  objectiveAt,
+  type Problem,
+} from "./problem";
+import { calculateGeometry } from "./geometry";
+import { randomProblem } from "./random";
+import { usePlayback } from "./usePlayback";
+import { travelPlan, PLOT_SPAN, type TravelPlan } from "./travel";
+import FeasibleGraph from "../components/FeasibleGraph";
+import ProblemEditor from "./components/ProblemEditor";
+import RollingNumber from "./components/RollingNumber";
+
+type Roll = {
+  plan: TravelPlan;
+  x: number[];
+  y: number[];
+  z: number[];
+};
+
+// Typeset ax₁ + bx₂ the way a person would write it: no zero terms, no unit
+// coefficients, a real minus sign.
+const minus = (n: string) => n.replace("-", "−");
+function linear(a: number, b: number): string {
+  const parts: string[] = [];
+  if (Math.abs(a) > 1e-9)
+    parts.push(`${a === 1 ? "" : a === -1 ? "−" : minus(format(a))}x₁`);
+  if (Math.abs(b) > 1e-9)
+    parts.push(
+      `${b < 0 ? "− " : parts.length ? "+ " : ""}${Math.abs(b) === 1 ? "" : format(Math.abs(b))}x₂`,
     );
-    setTrailSegment(null);
+  return parts.length ? parts.join(" ") : "0";
+}
+// The same expression with the current point substituted in: 3(4) + 2(2).
+function substituted(a: number, b: number, sol: number[]): string {
+  const parts: string[] = [];
+  if (Math.abs(a) > 1e-9)
+    parts.push(`${minus(format(a))}(${format(sol[0])})`);
+  if (Math.abs(b) > 1e-9)
+    parts.push(
+      `${b < 0 ? "− " : parts.length ? "+ " : ""}${format(Math.abs(b))}(${format(sol[1])})`,
+    );
+  return parts.length ? parts.join(" ") : "0";
+}
 
-    setPath([start, steps[0].sol]);
-    setIter(1);
+const ORIGINAL_INDEX = EXAMPLES.findIndex(
+  (item) => item.problem === ORIGINAL,
+);
 
-    for (let k = 1; k < steps.length; k++) {
-      await tween(
-        steps[k - 1].sol,
-        steps[k].sol,
-        setPoint,
-        1200 / speed,
-        undefined,
-        (current) => {
-          setTrailSegment([steps[k - 1].sol, current]);
-        }
+export default function LinearProgramming() {
+  // The page opens on the original polygon; the guided preview example stays
+  // one click away in the gallery for anyone following the home-page teaser.
+  const [problem, setProblem] = useState(ORIGINAL);
+  const [draft, setDraft] = useState(() => toDraft(ORIGINAL));
+  const [revision, setRevision] = useState(0);
+  const [example, setExample] = useState(ORIGINAL_INDEX);
+  const validation = useMemo(() => validateDraft(draft), [draft]);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(toDraft(problem));
+  const disabled = dirty || !validation.problem;
+  const geometry = useMemo(() => calculateGeometry(problem), [problem]);
+  const trace = useMemo(() => {
+    const result = new SimplexSolver(
+      problem.objective,
+      problem.constraints.map((r) => r.slice(0, 2)),
+      problem.constraints.map((r) => r[2]),
+    ).solve();
+    // Keep phase boundaries; omit duplicate terminal records at the same basis.
+    const steps = result.steps.filter(
+      (step, i, all) =>
+        i === 0 ||
+        step.phase !== all[i - 1].phase ||
+        step.sol.some((n, j) => Math.abs(n - all[i - 1].sol[j]) > 1e-8),
+    );
+    // A feasible origin needs no Phase-I walkthrough.
+    const visible = isFeasible(problem, [0, 0])
+      ? steps.filter((step) => step.phase === "optimisation")
+      : steps;
+    const finite = visible.every((step) => step.sol.every(Number.isFinite));
+    return {
+      status: finite ? result.status : "numerical",
+      steps: visible.length
+        ? visible
+        : [
+            {
+              sol: [0, 0],
+              obj: 0,
+              optimal: false,
+              phase: "feasibility",
+            } as Step,
+          ],
+    };
+  }, [problem]);
+  const playback = usePlayback(trace.steps.length - 1, !!disabled, revision);
+  const { index, playing } = playback;
+  const step = trace.steps[index];
+  const next = trace.steps[index + 1];
+  const feasible = isFeasible(problem, step.sol);
+  const z = objectiveAt(problem, step.sol);
+  const reducedMotion = useReducedMotion();
+  // Roll the readout numbers through the intermediate vertices on the same
+  // clock as the plot marker. Computed once per step (keyed on problem and
+  // index), so unrelated re-renders never restart a roll.
+  const rollRef = useRef<{ problem: Problem; index: number; roll: Roll | null }>(
+    { problem, index, roll: null },
+  );
+  if (rollRef.current.problem !== problem || rollRef.current.index !== index) {
+    const prev = rollRef.current;
+    let roll: Roll | null = null;
+    if (!reducedMotion && prev.problem === problem && index > prev.index) {
+      const sols = trace.steps
+        .slice(prev.index, index + 1)
+        .map((item) => item.sol);
+      const plan = travelPlan(sols, PLOT_SPAN / geometry.extent);
+      if (plan)
+        roll = {
+          plan,
+          x: sols.map((sol) => sol[0]),
+          y: sols.map((sol) => sol[1]),
+          z: sols.map((sol) => objectiveAt(problem, sol)),
+        };
+    }
+    rollRef.current = { problem, index, roll };
+  }
+  const roll = rollRef.current.roll;
+  const nextZ = next ? objectiveAt(problem, next.sol) : null;
+  const finished = index === trace.steps.length - 1;
+  const path = useMemo(
+    () => trace.steps.slice(0, index + 1).map((s) => s.sol),
+    [trace.steps, index],
+  );
+  const pointText = `(${step.sol.map(format).join(", ")})`;
+  // The boundaries that hold with equality here — the algebra of "a vertex is
+  // where boundaries meet". A Phase I basis can sit off every boundary.
+  const tight: string[] = [];
+  if (Math.abs(step.sol[0]) < 1e-7) tight.push("x₁ = 0");
+  if (Math.abs(step.sol[1]) < 1e-7) tight.push("x₂ = 0");
+  for (const [a, b, c] of problem.constraints)
+    if (
+      Math.abs(a * step.sol[0] + b * step.sol[1] - c) <
+      1e-6 * Math.max(1, Math.abs(c))
+    )
+      tight.push(`${linear(a, b)} = ${minus(format(c))}`);
+  const explanation = !finished
+    ? !feasible
+      ? "This point violates at least one original constraint. Phase I reduces artificial variables to find a feasible basis; it is not maximising the original objective yet."
+      : step.phase === "feasibility"
+        ? "A feasible point has been found. Phase II now switches to the original objective."
+        : nextZ !== null && nextZ - z > 1e-8
+          ? `The next pivot moves to (${next.sol.map(format).join(", ")}). The objective rises from ${format(z)} to ${format(nextZ)}: a gain of ${format(nextZ - z)}.`
+          : "The next basis has the same objective value. A degenerate pivot can change the basis without improving the objective."
+    : {
+        optimal:
+          "Optimal: no feasible improving edge remains. For a linear objective on this convex region, that gives a global maximum.",
+        infeasible:
+          "Infeasible: Phase I cannot remove all artificial variables. No point satisfies all the constraints.",
+        unbounded:
+          "Unbounded: an improving direction has no limiting constraint. The objective can increase without a finite maximum.",
+        searching:
+          "The iteration limit was reached. This is not a confirmed optimum.",
+        numerical:
+          "The calculation exceeded numerical limits. Try smaller coefficients or a less extreme problem.",
+      }[trace.status];
+  const status = finished
+    ? trace.status === "optimal"
+      ? "Optimal solution"
+      : trace.status === "infeasible"
+        ? "No feasible solution"
+        : trace.status === "unbounded"
+          ? "Unbounded objective"
+          : "Calculation stopped"
+    : step.phase === "feasibility"
+      ? "Phase I · find feasibility"
+      : index === 0
+        ? "Start at a feasible vertex"
+        : "Phase II · improve the objective";
+  function apply(nextProblem: Problem, exampleIndex = -1) {
+    playback.reset();
+    setProblem(nextProblem);
+    setDraft(toDraft(nextProblem));
+    setRevision((r) => r + 1);
+    setExample(exampleIndex);
+  }
+  // The objective is editable in place, like the original playground. Valid
+  // input applies immediately; a partial number pauses playback and shows the
+  // error without touching the solved problem. Kept as raw strings so typing
+  // "-" or "3." is never rewritten mid-keystroke. Resynced during render when
+  // the problem changes elsewhere, so a stale value is never committed.
+  const [objDraft, setObjDraft] = useState(() => problem.objective.map(String));
+  const [objProblem, setObjProblem] = useState(problem);
+  if (objProblem !== problem) {
+    setObjProblem(problem);
+    if (
+      !objDraft.every(
+        (raw, i) => !numberError(raw) && Number(raw) === problem.objective[i],
+      )
+    )
+      setObjDraft(problem.objective.map(String));
+  }
+  const objErrors = objDraft.map(numberError);
+  function changeObjective(slot: number, raw: string) {
+    const nextDraft = objDraft.map((s, i) => (i === slot ? raw : s));
+    setObjDraft(nextDraft);
+    if (nextDraft.every((s) => !numberError(s)))
+      apply(
+        {
+          objective: [Number(nextDraft[0]), Number(nextDraft[1])],
+          constraints: problem.constraints,
+        },
+        -1,
       );
-      setTrailSegment(null);
-      setPath(p => [...p, steps[k].sol]);
-      setIter(i => i + 1);
-      if (steps[k].optimal) setOptimal(steps[k].sol);
-    }
-
-    if (steps.length > 0 && steps[steps.length - 1].optimal) {
-      setOptimal(steps[steps.length - 1].sol);
-    }
-
-    if (status === 'infeasible')
-      console.log('This linear program is infeasible - no point satisfies all constraints.');
-    else if (status === 'unbounded')
-      console.log('The objective is unbounded - it can grow without limit.');
-
-    setRunning(false);
-  };
-
+    else playback.reset();
+  }
+  const blocker = !validation.problem
+    ? "Solve is unavailable: correct the invalid fields in Experiment below."
+    : dirty
+      ? "Apply your changes in Experiment before playing or solving."
+      : "";
+  const formula = `${format(problem.objective[0])}x₁ ${problem.objective[1] < 0 ? "−" : "+"} ${format(Math.abs(problem.objective[1]))}x₂`;
   return (
     <div className={styles.container}>
-      <section className={styles.section}>
-        {/* Header */}
-        <div className={styles.header}>
-          <h1 className={styles.title}>
-            Linear Programming - Simplex Algorithm
-          </h1>
-        </div>
-
-        <ControlPanel 
-          onRandomise={randomise}
-          onSolve={solve}
-          onReset={reset}
-          speed={speed}
-          setSpeed={setSpeed}
-          running={running}
-        />
-
-        {/* Main Content Area */}
-        <div className={styles.mainContent}>
-          {/* Canvas Container */}
-          <div className={styles.canvasContainer}>
-            <canvas 
-              ref={canvasRef} 
-              width={600} 
-              height={600} 
-              className={styles.canvas}
-            />
-          </div>
-
-          {/* Right Side Info Cards */}
-          <div className={styles.sideInfo}>
-            {/* Current Problem Card */}
-            <ProblemPanel
-              objective={problem.objective}
-              setObjective={(newObj) => setProblem(p => ({ ...p, objective: newObj }))}
-            />
-
-            {/* Current State Card */}
-              <InfoPanel 
-                point={point} 
-                objective={problem.objective} 
-                iter={iter} 
+      <Link href="/#projects" className={styles.backLink}>
+        ← Back to projects
+      </Link>
+      <header className={styles.header}>
+        <p className="eyebrow">Observe → Understand → Experiment</p>
+        <h1 className={styles.title}>
+          The Simplex method<span className="accent-text">.</span>
+        </h1>
+        <p className={styles.intro}>
+          A linear objective improves along an edge until a constraint stops it.
+          Watch the two-phase method work the original twenty-five-constraint
+          region, or pick the guided preview example from the gallery below to
+          follow one vertex at a time.
+        </p>
+      </header>
+      <section
+        aria-labelledby="walkthrough-title"
+        className={styles.walkthrough}
+      >
+        <div className={styles.problemHeading}>
+          <div>
+            <p className="eyebrow">
+              {example >= 0
+                ? EXAMPLES[example].name
+                : example === -2
+                  ? "A random polygon"
+                  : "Your problem"}
+            </p>
+            <h2 id="walkthrough-title" className="sr-only">
+              Maximise {formula}
+            </h2>
+            <div className={`${styles.objectiveRow} needs-js`}>
+              <span>Maximise</span>
+              <input
+                className={styles.objectiveInput}
+                value={objDraft[0]}
+                onChange={(e) => changeObjective(0, e.target.value)}
+                aria-label="Objective coefficient of x₁"
+                aria-invalid={objErrors[0] ? true : undefined}
+                aria-describedby={
+                  objErrors[0] || objErrors[1] ? "objective-error" : undefined
+                }
+                inputMode="decimal"
               />
+              <span aria-hidden="true">x₁ +</span>
+              <input
+                className={styles.objectiveInput}
+                value={objDraft[1]}
+                onChange={(e) => changeObjective(1, e.target.value)}
+                aria-label="Objective coefficient of x₂"
+                aria-invalid={objErrors[1] ? true : undefined}
+                aria-describedby={
+                  objErrors[0] || objErrors[1] ? "objective-error" : undefined
+                }
+                inputMode="decimal"
+              />
+              <span aria-hidden="true">x₂</span>
+            </div>
+            {(objErrors[0] || objErrors[1]) && (
+              <p id="objective-error" className={styles.fieldError} role="status">
+                {objErrors[0] ?? objErrors[1]}
+              </p>
+            )}
+            <noscript>
+              <p className={styles.staticFormula}>Maximise {formula}</p>
+            </noscript>
+          </div>
+          <a href="#experiment" className={styles.textLink}>
+            Experiment ↓
+          </a>
+        </div>
+        <div className={styles.mainContent}>
+          <div className={styles.graphPanel}>
+            <FeasibleGraph
+              geometry={geometry}
+              point={step.sol}
+              candidate={playing || index > 0 ? next?.sol : undefined}
+              path={path}
+              feasible={feasible}
+              description={`Shaded area: feasible points within the plotted window. Filled dot: current point ${pointText}, objective ${format(z)}. ${explanation}`}
+            />
+            <div className={styles.legend}>
+              <span>
+                <i className={styles.currentDot} />
+                Current vertex
+              </span>
+              <span>
+                <i className={styles.candidateDot} />
+                Next vertex
+              </span>
+              <span>
+                <i className={styles.regionSwatch} />
+                Feasible region
+              </span>
+            </div>
+            <div
+              className={`${styles.controls} needs-js`}
+              aria-label="Simplex playback"
+            >
+              <button
+                className={`${styles.button} ${styles.primary}`}
+                disabled={!!disabled || trace.steps.length < 2}
+                onClick={playback.toggle}
+              >
+                {playing ? "Pause" : "Play"}
+              </button>
+              <button
+                className={styles.button}
+                disabled={!!disabled || index === 0}
+                onClick={() => playback.move(index - 1)}
+              >
+                Previous step
+              </button>
+              <button
+                className={styles.button}
+                disabled={!!disabled || finished}
+                onClick={() => playback.move(index + 1)}
+              >
+                Next step
+              </button>
+              <button className={styles.button} onClick={playback.reset}>
+                Reset
+              </button>
+              <button
+                className={styles.button}
+                disabled={!!disabled}
+                aria-describedby={blocker ? "solve-blocker" : undefined}
+                onClick={() => playback.move(trace.steps.length - 1)}
+              >
+                Solve
+              </button>
+              <button
+                className={styles.button}
+                onClick={() => apply(randomProblem(), -2)}
+              >
+                Randomise
+              </button>
+              <div className={styles.speed}>
+                <label htmlFor={`${styles.speed}-slider`}>Speed</label>
+                <input
+                  id={`${styles.speed}-slider`}
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={(5500 - playback.delay) / 500}
+                  aria-valuetext={`${playback.delay / 1000} seconds per step`}
+                  onChange={(e) =>
+                    playback.setDelay(5500 - 500 * Number(e.target.value))
+                  }
+                />
+                <output aria-hidden="true" className={styles.speedValue}>
+                  {(5500 - playback.delay) / 500}
+                </output>
+              </div>
+            </div>
+            {blocker && (
+              <p id="solve-blocker" className={styles.blocker} role="status">
+                {blocker}
+              </p>
+            )}
+            <p className={`${styles.controlHint} needs-js`}>
+              Play pauses at each vertex so you can read; higher speed shortens
+              the pause. Next step advances once; Solve jumps to the result;
+              Randomise generates a new polygon.
+            </p>
+            {trace.status === "unbounded" && (
+              <p className={styles.graphNote}>
+                The region extends beyond this viewing window.
+              </p>
+            )}
+          </div>
+          <div className={styles.lesson}>
+            <div
+              className={styles.liveState}
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <p className="eyebrow">
+                Step {index + 1} of {trace.steps.length}
+              </p>
+              <h3>{status}</h3>
+              <dl className={styles.readout}>
+                <div>
+                  <dt>Current point</dt>
+                  <dd>
+                    <span aria-hidden="true">
+                      (
+                      <RollingNumber
+                        value={step.sol[0]}
+                        frames={roll?.x ?? null}
+                        plan={roll?.plan ?? null}
+                      />
+                      ,{" "}
+                      <RollingNumber
+                        value={step.sol[1]}
+                        frames={roll?.y ?? null}
+                        plan={roll?.plan ?? null}
+                      />
+                      )
+                    </span>
+                    <span className="sr-only">{pointText}</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Objective z</dt>
+                  <dd>
+                    <span aria-hidden="true">
+                      <RollingNumber
+                        value={z}
+                        frames={roll?.z ?? null}
+                        plan={roll?.plan ?? null}
+                      />
+                    </span>
+                    <span className="sr-only">{format(z)}</span>
+                  </dd>
+                </div>
+              </dl>
+              <p className={styles.explanation}>{explanation}</p>
+            </div>
+            <dl className={styles.mathBlock}>
+              <div>
+                <dt>The objective, evaluated</dt>
+                <dd>
+                  z = {linear(problem.objective[0], problem.objective[1])} ={" "}
+                  {substituted(
+                    problem.objective[0],
+                    problem.objective[1],
+                    step.sol,
+                  )}{" "}
+                  = <strong>{format(z)}</strong>
+                </dd>
+              </div>
+              <div>
+                <dt>Boundaries meeting this point</dt>
+                <dd>
+                  {tight.length
+                    ? tight.slice(0, 3).join("  ·  ") +
+                      (tight.length > 3 ? `  ·  +${tight.length - 3} more` : "")
+                    : "None — an artificial Phase I basis, off every boundary."}
+                </dd>
+              </div>
+            </dl>
+            <p className={styles.mathNote}>
+              A vertex is where boundaries meet. Each pivot walks one edge,
+              releasing one boundary and tightening another.
+            </p>
+            <details
+              className={styles.feasibility}
+              open={example === 0 ? true : undefined}
+            >
+              <summary>
+                {feasible
+                  ? "Why is this point feasible?"
+                  : "Check the constraints"}
+              </summary>
+              <ul>
+                {problem.constraints.map(([a, b, c], i) => (
+                  <li key={i}>
+                    <span>
+                      {format(a)}x₁ {b < 0 ? "−" : "+"} {format(Math.abs(b))}x₂
+                      ≤ {format(c)}
+                    </span>
+                    <strong>
+                      {format(a * step.sol[0] + b * step.sol[1])} ≤ {format(c)}{" "}
+                      {a * step.sol[0] + b * step.sol[1] <= c + 1e-7
+                        ? "✓"
+                        : "✕"}
+                    </strong>
+                  </li>
+                ))}
+                <li>
+                  <span>x₁, x₂ ≥ 0</span>
+                  <strong>
+                    {step.sol.every((n) => n >= -1e-7) ? "✓" : "✕"}
+                  </strong>
+                </li>
+              </ul>
+            </details>
           </div>
         </div>
-
-        {/* Constraints - Full Width Below */}
-        <ConstraintsList
-          constraints={problem.constraints}
-          setConstraints={(newCons) => setProblem(p => ({ ...p, constraints: newCons }))}
+        <noscript>
+          <p>
+            The diagram above shows the original twenty-five-constraint region
+            at its starting state. The guided preview example proceeds (0, 0) →
+            (4, 0) → (4, 2), with objective values 0 → 12 → 16. Enable
+            JavaScript to step through this region, or to edit and solve other
+            problems.
+          </p>
+        </noscript>
+      </section>
+      <section
+        id="experiment"
+        className={`${styles.experiment} needs-js`}
+        aria-labelledby="experiment-title"
+      >
+        <p className="eyebrow">Make it your own</p>
+        <h2 id="experiment-title">What changes the optimum?</h2>
+        <p className={styles.intro}>
+          Try increasing the coefficient of x₂. Or move a boundary and watch the
+          feasible region change. Apply your problem, then return to the
+          diagram.
+        </p>
+        <details className={styles.examples} open>
+          <summary>Explore other examples</summary>
+          <div className={styles.exampleGrid}>
+            {EXAMPLES.map((item, i) => (
+              <button
+                key={item.name}
+                aria-pressed={example === i}
+                onClick={() => apply(item.problem, i)}
+              >
+                <strong>{item.name}</strong>
+                <span>{item.note}</span>
+              </button>
+            ))}
+          </div>
+        </details>
+        <ProblemEditor
+          draft={draft}
+          errors={validation.errors}
+          dirty={dirty}
+          onChange={(nextDraft) => {
+            playback.reset();
+            setDraft(nextDraft);
+          }}
+          onApply={() => {
+            if (validation.problem) apply(validation.problem);
+          }}
         />
+        <a className={styles.textLink} href="#walkthrough-title">
+          Back to the diagram ↑
+        </a>
       </section>
     </div>
   );

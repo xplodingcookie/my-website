@@ -1,10 +1,11 @@
 "use client";
+import useReducedMotion from "./useReducedMotion";
 
 import Image from "next/image";
-import { motion, useReducedMotion, Variants } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
 const fadeIn: Variants = {
-  hidden: { opacity: 0, y: 24, scale: 0.96 },
+  hidden: { opacity: 1, y: 0, scale: 1 },
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } },
 };
 
@@ -17,8 +18,8 @@ function WirePoly({ className, path, delay }: { className: string; path: string;
       fill="none"
       aria-hidden="true"
       className={`absolute w-8 h-8 text-indigo-400/50 ${className}`}
-      animate={reducedMotion ? undefined : { y: [0, -8, 0], rotate: [0, 8, 0] }}
-      transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay }}
+      whileHover={reducedMotion ? undefined : { rotate: 8 }}
+      transition={{ duration: .5, delay }}
     >
       <path d={path} stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
     </motion.svg>
@@ -38,28 +39,27 @@ export default function AboutPortrait() {
         <WirePoly
           className="bottom-10 -right-9"
           path="M20 3 L37 20 L20 37 L3 20 Z M3 20 L37 20"
-          delay={1.6}
+          delay={0}
         />
 
         <motion.div
-          animate={reducedMotion ? undefined : { y: [0, -9, 0] }}
-          transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+          whileHover={reducedMotion ? undefined : { y: -5 }}
+          transition={{ duration: .5 }}
         >
           <Image
             src="/pfp.png"
-            alt="Illustration of Dong Li crouching down to pat a happy cat"
+            alt="Dong Li’s illustrated ninja avatar"
             width={500}
             height={500}
             className="w-full h-auto select-none"
           />
         </motion.div>
 
-        {/* ground shadow that breathes with the float */}
+        {/* A quiet grounding shadow beneath the original avatar. */}
         <motion.div
           aria-hidden="true"
           className="mx-auto -mt-2 h-4 w-3/4 rounded-[100%] bg-indigo-900/15 blur-md"
-          animate={reducedMotion ? undefined : { scaleX: [1, 0.82, 1], opacity: [1, 0.6, 1] }}
-          transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: .5 }}
         />
       </div>
     </motion.div>

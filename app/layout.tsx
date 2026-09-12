@@ -6,10 +6,18 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import Preloader from "./components/Preloader";
 import SmoothScroll from "./components/SmoothScroll";
+import MotionProvider from "./components/MotionProvider";
 
 export const metadata = {
-  title: "Dong Li - Software Developer",
-  description: "Portfolio site for Dong Li - Mathematics & Computer Science",
+  title: "Dong Li — Software Engineer",
+  description:
+    "Software engineer and data scientist in Melbourne, working where mathematics meets computer science: healthcare integrations, data science, and an interactive Simplex playground.",
+  openGraph: {
+    title: "Dong Li — Software Engineer",
+    description:
+      "Mathematics × computer science: healthcare integrations, data science, and an interactive Simplex playground.",
+    type: "website",
+  },
 };
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -24,15 +32,19 @@ const myFont = localFont({
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${myFont.variable}`}>
-      <body className="bg-gradient-to-b from-purple-100 to-sky-50 text-neutral-900 antialiased">
-        <Preloader />
-        <SmoothScroll />
-        <Header />
-        <main id="top" className="pt-16 sm:pt-20">
-          {children}
-        </main>
-        <Footer />
-        <div className="grain" aria-hidden="true" />
+      <body>
+        <noscript><style>{`.needs-js{display:none!important}`}</style></noscript>
+        <MotionProvider>
+          <Preloader />
+          <a href="#main-content" className="skip-link">Skip to content</a>
+          <SmoothScroll />
+          <Header />
+          <main id="main-content" tabIndex={-1}>
+            {children}
+          </main>
+          <Footer />
+          <div className="grain" aria-hidden="true" />
+        </MotionProvider>
       </body>
     </html>
   );
