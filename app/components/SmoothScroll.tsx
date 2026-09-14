@@ -28,6 +28,19 @@ export default function SmoothScroll() {
         delete window.__lenis;
       };
     };
+    // A press has to land on a still page. Lenis keeps easing for a beat after
+    // the wheel stops, so a control can glide out from under the cursor and the
+    // grab is dropped — most visibly the Speed slider on the Simplex walk,
+    // where the whole drag is lost, not just a click. stop() resyncs the target
+    // to the real scroll position and kills the in-flight tail; start() hands
+    // scrolling straight back, so smooth scrolling is never left switched off.
+    const settle = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target?.closest?.("input, button, select, textarea, summary, a[href]"))
+        return;
+      window.__lenis?.stop();
+      window.__lenis?.start();
+    };
     const onAnchor = (event: MouseEvent) => {
       if (
         event.defaultPrevented ||
@@ -77,11 +90,13 @@ export default function SmoothScroll() {
       }
     };
     setup();
+    window.addEventListener("pointerdown", settle, true);
     window.addEventListener("click", onAnchor);
     reduced.addEventListener("change", setup);
     coarse.addEventListener("change", setup);
     return () => {
       cleanup?.();
+      window.removeEventListener("pointerdown", settle, true);
       window.removeEventListener("click", onAnchor);
       reduced.removeEventListener("change", setup);
       coarse.removeEventListener("change", setup);

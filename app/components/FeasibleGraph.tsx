@@ -13,6 +13,7 @@ type Props = {
   path: number[][];
   description: string;
   feasible: boolean;
+  pace?: number;
 };
 function FeasibleGraph({
   geometry,
@@ -21,6 +22,7 @@ function FeasibleGraph({
   path,
   description,
   feasible,
+  pace = 1,
 }: Props) {
   const reduced = useReducedMotion();
   // Keep geometry in one fixed coordinate system. Only the browser scales it;
@@ -84,7 +86,8 @@ function FeasibleGraph({
         prev.pts[prev.pts.length - 1],
         ...pts.slice(prev.pts.length),
       ];
-      const plan = travelPlan(waypoints);
+      // Already projected, so no rescaling; `pace` carries the Speed setting.
+      const plan = travelPlan(waypoints, 1, pace);
       let full = 0;
       for (let i = 1; i < pts.length; i++)
         full += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);

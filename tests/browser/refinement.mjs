@@ -25,6 +25,16 @@ page.on("console", (m) => {
     errors.push(m.text());
 });
 const button = (name) => page.getByRole("button", { name, exact: true });
+// The intro screen is mounted after hydration, so waiting only for "detached"
+// resolves before it has appeared and leaves it covering the page.
+const afterIntro = async (pg) => {
+  const screen = pg.locator(".preloader-screen");
+  await screen.waitFor({ state: "attached", timeout: 5000 }).catch(() => {});
+  await screen.waitFor({ state: "detached", timeout: 15000 });
+};
+// The primary control is one button in two states: "Solve" jumps to the
+// result, and once it has landed it reads "Start over" and rewinds.
+const solve = () => page.getByRole("button", { name: /^(Solve|Start over)$/ });
 const state = () => page.locator('[aria-live="polite"]').first().innerText();
 async function assertMarkersOnVertices() {
   const distances = await page.locator(".feasible-graph").first().evaluate(svg => {
@@ -84,7 +94,7 @@ try {
     );
     // The default original region starts Phase I at the infeasible origin,
     // which is no polygon vertex; solved, the markers sit on the optimum.
-    await button("Solve").click();
+    await solve().click();
     await page.waitForTimeout(150);
     await assertMarkersOnVertices();
     await page.locator(".feasible-graph").scrollIntoViewIfNeeded();
@@ -131,7 +141,14 @@ try {
   await page.waitForTimeout(2400);
   assert.match(await state(), /Optimal solution/);
   await button("Reset").click();
-  await button("Solve").click();
+  await solve().click();
+  assert.match(await state(), /16/);
+  // Solved, the same button offers the way back and replays from the origin.
+  assert.equal(await solve().innerText(), "Start over");
+  await solve().click();
+  assert.match(await state(), /\(0, 0\)/);
+  assert.equal(await solve().innerText(), "Solve");
+  await solve().click();
   assert.match(await state(), /16/);
   for (const raw of ["2oops", "", "-", "1e999", "1e-999"]) {
     await page.getByLabel("c₁", { exact: true }).fill(raw);
@@ -144,16 +161,16 @@ try {
       await page.getByLabel("c₁", { exact: true }).getAttribute("aria-invalid"),
       "true",
     );
-    assert(await button("Solve").isDisabled());
+    assert(await solve().isDisabled());
   }
   await page.getByLabel("c₁", { exact: true }).fill("2.5");
-  assert(await button("Solve").isDisabled());
+  assert(await solve().isDisabled());
   await button("Apply problem").click();
-  assert.equal(await button("Solve").isDisabled(), false);
-  await button("Solve").click();
+  assert.equal(await solve().isDisabled(), false);
+  await solve().click();
   assert.match(await state(), /14/);
   await button("Add constraint").click();
-  assert(await button("Solve").isDisabled());
+  assert(await solve().isDisabled());
   const rows = page.locator("input[id^=constraint-]");
   assert.equal(await rows.nth(9).inputValue(), "");
   await page
@@ -175,23 +192,23 @@ try {
     ["More edges", /Optimal solution/],
   ]) {
     await page.getByRole("button", { name: new RegExp(name) }).click();
-    await button("Solve").click();
+    await solve().click();
     assert.match(await state(), result);
   }
   // Randomise generates a verified problem: integer, off-origin, optimal.
   await button("Randomise").click();
   assert.match(await page.innerText(".eyebrow >> nth=1"), /random polygon/i);
-  await button("Solve").click();
+  await solve().click();
   assert.match(await state(), /Optimal solution/);
   // The objective is editable in the heading; valid input applies at once,
   // invalid input shows the error and leaves the last valid problem solvable.
   await page.getByRole("button", { name: /The preview example/ }).click();
   await page.getByLabel("Objective coefficient of x₁").fill("5");
-  await button("Solve").click();
+  await solve().click();
   assert.match(await state(), /24/); // 5(4) + 2(2) at the same optimal vertex
   await page.getByLabel("Objective coefficient of x₁").fill("1e999");
   assert.equal(await page.locator("#objective-error").count(), 1);
-  assert.equal(await button("Solve").isDisabled(), false);
+  assert.equal(await solve().isDisabled(), false);
   await page.getByLabel("Objective coefficient of x₁").fill("3");
   assert.equal(await page.locator("#objective-error").count(), 0);
   assert.match(await state(), /\(0, 0\)/);
@@ -207,12 +224,12 @@ try {
     }
     assert.equal(await page.locator("#constraint-0-2").inputValue(), raw);
     assert(await page.locator("#objective-draft-hint").isVisible());
-    assert(await button("Solve").isDisabled());
+    assert(await solve().isDisabled());
   }
   await page.locator("#constraint-0-2").fill("2");
   await button("Apply problem").click();
   await page.getByLabel("Objective coefficient of x₁").fill("5");
-  await button("Solve").click();
+  await solve().click();
   assert.match(await state(), /\(2, 4\)/);
   assert.match(await state(), /18/);
   assert.equal(await page.locator("#constraint-0-2").inputValue(), "2");
@@ -220,7 +237,7 @@ try {
   // Clearing every constraint leaves only nonnegativity: unbounded.
   await button("Clear all constraints").click();
   await button("Apply problem").click();
-  await button("Solve").click();
+  await solve().click();
   assert.match(await state(), /Unbounded objective/);
   assert(await button("Clear all constraints").isDisabled());
   // Equivalent tiny coefficients still plot the off-origin square and optimum.
@@ -236,7 +253,7 @@ try {
   await page.getByLabel("c₁", { exact: true }).fill("1");
   await page.getByLabel("c₂", { exact: true }).fill("1");
   await button("Apply problem").click();
-  await button("Solve").click();
+  await solve().click();
   assert.match(await state(), /\(20, 20\)/);
   assert.match(await state(), /40/);
   await page.waitForTimeout(150);
@@ -335,6 +352,161 @@ try {
     "paused",
   );
   console.log("Motion toggle, offscreen shutdown and reduced motion passed");
+  // Speed paces the sweep as well as the pause, so Solve is slow at notch 1
+  // and quick at notch 10. Needs its own page: the main one runs reduced,
+  // where every move is instant by design.
+  const motion = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  // Sampled at one fixed instant rather than timed with a poll loop: the
+  // readout either finished rolling by then or it did not, so the check does
+  // not race its own measurement overhead.
+  const SAMPLE = 300;
+  const settledAt = async (key) => {
+    await motion.goto(base + "/linear-programming");
+    await motion.getByRole("button", { name: /More edges/ }).click();
+    await motion.getByLabel("Speed").focus();
+    await motion.keyboard.press(key);
+    const readout = motion.locator('[aria-live="polite"]').first();
+    const solved = motion.getByRole("button", { name: /^(Solve|Start over)$/ });
+    await solved.click();
+    await motion.waitForTimeout(6000);
+    const target = await readout.innerText();
+    await solved.click(); // "Start over" rewinds for the timed run
+    await motion.waitForTimeout(500);
+    await solved.click();
+    await motion.waitForTimeout(SAMPLE);
+    return (await readout.innerText()) === target;
+  };
+  assert(
+    await settledAt("End"),
+    `At the highest speed the sweep has landed ${SAMPLE}ms in`,
+  );
+  assert(
+    !(await settledAt("Home")),
+    `At the lowest speed the sweep is still running ${SAMPLE}ms in`,
+  );
+  await motion.close();
+  console.log("Speed paces the Solve sweep, not just the Play pause, passed");
+  // The Speed slider has to be grabbable wherever it sits on screen. Two
+  // things used to swallow the drag: the fixed translucent header, which made
+  // the top 80px of every page a dead zone, and Lenis's smooth-scroll tail,
+  // which kept gliding the control out from under the press.
+  const dragSlider = async (pg) => {
+    const range = pg.locator("input[type=range]");
+    await range.evaluate((el) => {
+      const set = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      ).set;
+      set.call(el, "5");
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const box = await range.boundingBox();
+    await pg.mouse.move(box.x + box.width * 0.6, box.y + box.height / 2);
+    await pg.mouse.down();
+    for (let i = 1; i <= 10; i++) {
+      await pg.mouse.move(
+        box.x + box.width * (0.6 + 0.4 * (i / 10)),
+        box.y + box.height / 2,
+      );
+      await pg.waitForTimeout(10);
+    }
+    await pg.mouse.up();
+    await pg.waitForTimeout(60);
+    return await range.inputValue();
+  };
+  // The bar stops swallowing presses, but its own links must still take them.
+  await page.goto(base);
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Projects" })
+    .click();
+  await page.waitForTimeout(400);
+  assert.equal(
+    await page.evaluate(() => document.activeElement.id),
+    "projects",
+    "Header nav links still respond",
+  );
+  await page.goto(base + "/linear-programming");
+  await page.locator('[aria-label="Simplex playback"]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  for (const targetY of [60, 24]) {
+    const start = await page.locator("input[type=range]").boundingBox();
+    await page.evaluate((dy) => window.scrollBy(0, dy), start.y - targetY);
+    await page.waitForTimeout(300);
+    const at = Math.round(
+      (await page.locator("input[type=range]").boundingBox()).y,
+    );
+    assert.notEqual(
+      await dragSlider(page),
+      "5",
+      `Slider drags at viewport y=${at}, under the fixed header`,
+    );
+  }
+  // Lenis only runs on a fine pointer without reduced motion, so this needs
+  // its own page too.
+  const glide = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await glide.goto(base + "/linear-programming");
+  await afterIntro(glide);
+  await glide.waitForTimeout(500);
+  assert(await glide.evaluate(() => !!window.__lenis), "Lenis runs here");
+  const bar = await glide
+    .locator('[aria-label="Simplex playback"]')
+    .boundingBox();
+  await glide.mouse.move(700, 500);
+  await glide.mouse.wheel(0, bar.y - 400);
+  await glide.waitForTimeout(600);
+  assert.notEqual(
+    await dragSlider(glide),
+    "5",
+    "Slider drags once the page has come to rest",
+  );
+  // The tail is what used to break the grab: pressing a control has to stop
+  // it, or the control glides out from under the cursor mid-drag. Measured
+  // as a pair, so the check still means something if the tail ever changes.
+  const tailDrift = async (press) => {
+    await glide.mouse.move(700, 500);
+    await glide.mouse.wheel(0, 600);
+    await glide.waitForTimeout(60); // mid-tail
+    return await glide.evaluate((withPress) => {
+      const before = window.scrollY;
+      if (withPress)
+        document
+          .querySelector("input[type=range]")
+          .dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      return new Promise((done) =>
+        setTimeout(() => done(window.scrollY - before), 400),
+      );
+    }, press);
+  };
+  const loose = await tailDrift(false);
+  const pressed = await tailDrift(true);
+  assert(loose > 5, `The scroll tail really does keep easing (${Math.round(loose)}px)`);
+  assert(
+    Math.abs(pressed) <= 2,
+    `A press on a control stops the tail (drifted ${Math.round(pressed)}px)`,
+  );
+  const resting = await glide.evaluate(() => window.scrollY);
+  await glide.mouse.wheel(0, 400);
+  await glide.waitForTimeout(900);
+  assert(
+    (await glide.evaluate(() => window.scrollY)) > resting,
+    "Smooth scrolling resumes after a press, never left switched off",
+  );
+  await glide.close();
+  // The intro screen must stop blocking presses the moment it slides away.
+  const intro = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await intro.goto(base + "/linear-programming");
+  await intro.waitForTimeout(1600);
+  assert.notEqual(
+    await intro.evaluate(() => {
+      const el = document.querySelector(".preloader-screen");
+      return el ? getComputedStyle(el).pointerEvents : "gone";
+    }),
+    "auto",
+    "Intro screen stops swallowing presses as it leaves",
+  );
+  await intro.close();
+  console.log("Slider grabbable under the header and through the scroll tail passed");
   const touch = await browser.newPage({
     viewport: { width: 390, height: 844 },
     isMobile: true,

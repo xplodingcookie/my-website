@@ -55,7 +55,9 @@ export default function Preloader() {
           role="status"
           aria-label="Loading"
           className="preloader-screen fixed inset-0 z-[100] flex items-center justify-center"
-          exit={{ y: "-100%" }}
+          // Stops covering the page the moment it starts sliding away, so the
+          // 0.8s exit is not another window where presses go nowhere.
+          exit={{ y: "-100%", pointerEvents: "none" }}
           transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
         >
           <motion.div exit={{ opacity: 0, scale: 0.92 }} transition={{ duration: 0.3 }}>

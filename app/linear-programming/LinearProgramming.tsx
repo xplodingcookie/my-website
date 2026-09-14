@@ -17,7 +17,7 @@ import {
 } from "./problem";
 import { calculateGeometry } from "./geometry";
 import { randomProblem } from "./random";
-import { usePlayback } from "./usePlayback";
+import { usePlayback, DEFAULT_DELAY } from "./usePlayback";
 import { travelPlan, PLOT_SPAN, type TravelPlan } from "./travel";
 import FeasibleGraph from "../components/FeasibleGraph";
 import ProblemEditor from "./components/ProblemEditor";
@@ -104,6 +104,10 @@ export default function LinearProgramming() {
   }, [problem]);
   const playback = usePlayback(trace.steps.length - 1, !!disabled, revision);
   const { index, playing } = playback;
+  // One control paces everything: the Speed slider sets the pause between
+  // vertices, and the same setting stretches the marker and readout sweep, so
+  // Solve's run to the answer speeds up and slows down with it too.
+  const pace = playback.delay / DEFAULT_DELAY;
   const step = trace.steps[index];
   const next = trace.steps[index + 1];
   const feasible = isFeasible(problem, step.sol);
@@ -122,7 +126,7 @@ export default function LinearProgramming() {
       const sols = trace.steps
         .slice(prev.index, index + 1)
         .map((item) => item.sol);
-      const plan = travelPlan(sols, PLOT_SPAN / geometry.extent);
+      const plan = travelPlan(sols, PLOT_SPAN / geometry.extent, pace);
       if (plan)
         roll = {
           plan,
@@ -136,6 +140,9 @@ export default function LinearProgramming() {
   const roll = rollRef.current.roll;
   const nextZ = next ? objectiveAt(problem, next.sol) : null;
   const finished = index === trace.steps.length - 1;
+  // Solve doubles as the way back: once the run has landed on the last vertex
+  // the same button starts the walk over, so the animation is one click away.
+  const solved = finished && trace.steps.length > 1;
   const path = useMemo(
     () => trace.steps.slice(0, index + 1).map((s) => s.sol),
     [trace.steps, index],
@@ -318,6 +325,7 @@ export default function LinearProgramming() {
               candidate={playing || index > 0 ? next?.sol : undefined}
               path={path}
               feasible={feasible}
+              pace={pace}
               description={`Shaded area: feasible points within the plotted window. Filled dot: current point ${pointText}, objective ${format(z)}. ${explanation}`}
             />
             <div className={styles.legend}>
@@ -339,7 +347,19 @@ export default function LinearProgramming() {
               aria-label="Simplex playback"
             >
               <button
-                className={`${styles.button} ${styles.primary}`}
+                className={`${styles.button} ${styles.primary} ${solved ? styles.primaryDone : ""}`}
+                disabled={!!disabled}
+                aria-describedby={blocker ? "solve-blocker" : undefined}
+                onClick={
+                  solved
+                    ? playback.reset
+                    : () => playback.move(trace.steps.length - 1)
+                }
+              >
+                {solved ? "Start over" : "Solve"}
+              </button>
+              <button
+                className={styles.button}
                 disabled={!!disabled || trace.steps.length < 2}
                 onClick={playback.toggle}
               >
@@ -361,14 +381,6 @@ export default function LinearProgramming() {
               </button>
               <button className={styles.button} onClick={playback.reset}>
                 Reset
-              </button>
-              <button
-                className={styles.button}
-                disabled={!!disabled}
-                aria-describedby={blocker ? "solve-blocker" : undefined}
-                onClick={() => playback.move(trace.steps.length - 1)}
-              >
-                Solve
               </button>
               <button
                 className={styles.button}
@@ -401,8 +413,9 @@ export default function LinearProgramming() {
               </p>
             )}
             <p className={`${styles.controlHint} needs-js`}>
-              Play pauses at each vertex so you can read; higher speed shortens
-              the pause. Next step advances once; Solve jumps to the result;
+              Speed paces the whole walk: higher speed shortens Play&rsquo;s pause
+              at each vertex and quickens Solve&rsquo;s sweep to the answer. Next
+              step advances once; Solve runs to the result, then starts over;
               Randomise generates a new polygon.
             </p>
             {trace.status === "unbounded" && (

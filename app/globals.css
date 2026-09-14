@@ -41,7 +41,12 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .hero-fallback { position: absolute; width: 240px; height: 240px; top: 20%; left: calc(50% - 120px); color: var(--ink-soft); }
 
 /* The persistent navigation shares the page's margins and quiet linework. */
-.site-header { position: fixed; z-index: 40; inset: 0 0 auto; height: 80px; border-bottom: 1px solid transparent; transition: background .35s, border-color .35s; background: #eee5fa55; backdrop-filter: blur(18px); }
+/* The bar is translucent and fixed, so page content stays visible through it.
+   Without this the top 80px of every page is a dead zone: you can see a
+   control through the blur and pressing it does nothing. The bar's own links
+   and buttons opt back in. */
+.site-header { position: fixed; z-index: 40; inset: 0 0 auto; height: 80px; border-bottom: 1px solid transparent; transition: background .35s, border-color .35s; background: #eee5fa55; backdrop-filter: blur(18px); pointer-events: none; }
+.header-inner > *, .mobile-nav { pointer-events: auto; }
 .site-header.is-scrolled { background: #f6f3fbe8; border-color: var(--hairline); }
 .header-inner { max-width: 1280px; height: 100%; margin: auto; padding-inline: 40px; display: flex; align-items: center; gap: 36px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; margin-right: auto; font-size: 15px; font-weight: 600; letter-spacing: -.04em; }

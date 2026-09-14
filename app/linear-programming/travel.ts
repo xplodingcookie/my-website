@@ -12,11 +12,14 @@ export type TravelPlan = {
 };
 
 // `scale` converts the given coordinates to viewBox pixels (1 when the points
-// are already projected). Single edges ease into their vertex; longer runs
-// cruise at constant speed.
+// are already projected). `pace` stretches the result: it is the playback
+// delay as a multiple of the default, so the Speed control slows or quickens
+// the sweep exactly as it slows or quickens the pause between vertices.
+// Single edges ease into their vertex; longer runs cruise at constant speed.
 export function travelPlan(
   points: number[][],
   scale = 1,
+  pace = 1,
 ): TravelPlan | null {
   if (points.length < 2) return null;
   const cum = [0];
@@ -30,7 +33,7 @@ export function travelPlan(
   if (total < 1e-6) return null;
   return {
     total,
-    duration: Math.min(2.2, Math.max(0.18, total / SPEED)),
+    duration: Math.min(2.2, Math.max(0.18, total / SPEED)) * pace,
     times: cum.map((c) => c / total),
     ease: points.length > 3 ? "linear" : "easeInOut",
   };

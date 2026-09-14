@@ -1,11 +1,16 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 
+// The pause per vertex at the slider's starting notch (7 of 10). Everything
+// else that follows the walk is timed as a multiple of this, so one control
+// paces the whole animation.
+export const DEFAULT_DELAY = 2000;
+
 // Discrete vertex steps leave time to read. No frame-by-frame React updates.
 export function usePlayback(last: number, disabled: boolean, revision: number) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [delay, setDelay] = useState(2000);
+  const [delay, setDelay] = useState(DEFAULT_DELAY);
   const reset = useCallback(() => {
     setPlaying(false);
     setIndex(0);

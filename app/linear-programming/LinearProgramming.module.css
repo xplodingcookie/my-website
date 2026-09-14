@@ -43,6 +43,8 @@
 .button:hover:not(:disabled) { background: #e4dbee; }
 .primary { color: white; background: var(--accent-deep); border-color: var(--accent-deep); }
 .primary:hover:not(:disabled) { background: #51388c; }
+.primaryDone { color: var(--accent-deep); background: #e9e2f5; border-color: #8e7ba766; }
+.primaryDone:hover:not(:disabled) { background: #ded2f0; }
 .speed { display: flex; gap: 10px; align-items: center; font-size: 12px; margin-left: auto; }
 .speed input[type=range] { width: 120px; min-height: 44px; accent-color: var(--accent-deep); cursor: pointer; }
 .speedValue { font-family: var(--font-mono); font-size: 13px; color: var(--accent-deep); min-width: 2ch; text-align: center; }
